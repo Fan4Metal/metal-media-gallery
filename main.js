@@ -29,6 +29,10 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 
     this.applyCssVars();
+    // Popout windows have their own document, so style each as it opens.
+    this.registerEvent(
+      this.app.workspace.on('window-open', (win, window) => this.applyCssVarsTo(window.document))
+    );
     this.addSettingTab(new MediaGallerySettingTab(this.app, this));
 
     this.addCommand({
@@ -57,10 +61,24 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     });
   }
 
+  /* Every document Obsidian renders into: the main window plus open popouts. */
+  documents() {
+    const docs = new Set([document]);
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      const el = leaf.view && leaf.view.containerEl;
+      if (el) docs.add(el.ownerDocument);
+    });
+    return docs;
+  }
+
   /* Push settings to CSS custom properties consumed by styles.css */
   applyCssVars() {
+    this.documents().forEach((doc) => this.applyCssVarsTo(doc));
+  }
+
+  applyCssVarsTo(doc) {
     const s = this.settings;
-    const root = document.body;
+    const root = doc.body;
     root.style.setProperty('--mg-row-height', s.rowHeight + 'px');
     root.style.setProperty('--mg-columns', String(s.columns));
     root.style.setProperty('--mg-gap', s.gap + 'px');
@@ -72,9 +90,11 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     await this.saveData(this.settings);
     this.applyCssVars();
     // Re-layout every visible justified gallery so changes show immediately.
-    document
-      .querySelectorAll('.callout[data-callout="gallery"] > .callout-content')
-      .forEach((content) => this.layout(content));
+    this.documents().forEach((doc) => {
+      doc
+        .querySelectorAll('.callout[data-callout="gallery"] > .callout-content')
+        .forEach((content) => this.layout(content));
+    });
   }
 
   /* Add or remove the left-ribbon wrap button to match the setting. */
