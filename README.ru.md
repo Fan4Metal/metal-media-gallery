@@ -106,6 +106,8 @@
 
 После деплоя следует перезагрузить Obsidian (`Ctrl+P → Reload app without saving`) и включить **Metal Media Gallery** в *Settings → Community plugins*.
 
+Для алгоритма упаковки рядов есть небольшой набор тестов без зависимостей: `node --test`.
+
 ### Релиз
 
 ```powershell
@@ -124,6 +126,7 @@
 | `styles.css` | Оформление callout'а, вынос по ширине, масонри |
 | `deploy.ps1` | Копирует плагин в хранилище; режим `-Watch` |
 | `release.ps1` | Собирает `dist/metal-media-gallery.zip` для релиза |
+| `test/pack.test.js` | Тесты алгоритма упаковки рядов (`node --test`) |
 
 ## Лицензия
 

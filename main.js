@@ -300,7 +300,7 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     this.layout(content);
   }
 
-  /* The justified algorithm: greedy row fill, then scale each row to width. */
+  /* Size the items of one justified gallery (the packing itself is packRows). */
   layout(content) {
     // Post processors also run on callouts in Live Preview, where styles.css
     // doesn't apply; sizing the images there would only shrink them in place.
@@ -309,7 +309,9 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     const items = Array.from(content.querySelectorAll('img, video'));
     if (!items.length) return;
 
-    const width = content.clientWidth;
+    // Fractional, not clientWidth: that is rounded, and rounding up by half
+    // a pixel is enough to wrap the last item of a row.
+    const width = content.getBoundingClientRect().width;
     if (!width) return;
 
     const gap = this.settings.gap;
@@ -322,32 +324,68 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       return h > 0 ? w / h : 3 / 2;
     });
 
-    let row = [];
-    let rowArSum = 0;
-
-    const flushRow = (isLast) => {
-      if (!row.length) return;
-      const gaps = (row.length - 1) * gap;
-      // For a full row, scale height so widths fill the container exactly.
-      // The last, incomplete row keeps the target height (left aligned).
-      const h = isLast ? targetH : (width - gaps) / rowArSum;
-      row.forEach(({ el, ar }) => {
-        el.style.height = Math.round(h) + 'px';
-        el.style.width = Math.floor(ar * h) + 'px';
-      });
-      row = [];
-      rowArSum = 0;
-    };
-
-    for (let i = 0; i < items.length; i++) {
-      row.push({ el: items[i], ar: ars[i] });
-      rowArSum += ars[i];
-      const gaps = (row.length - 1) * gap;
-      const naturalRowWidth = rowArSum * targetH + gaps;
-      if (naturalRowWidth >= width) flushRow(false);
+    for (const { start, end, height, full } of packRows(ars, width, gap, targetH)) {
+      // Widths are snapped down to the 1/64 px grid Chromium lays out on, so
+      // a row's sum never exceeds the container and nothing wraps. In a full
+      // row the last item takes the remainder, so the row ends flush.
+      let used = 0;
+      for (let i = start; i < end; i++) {
+        const w = full && i === end - 1
+          ? width - (end - start - 1) * gap - used
+          : ars[i] * height;
+        const snapped = Math.floor(w * 64) / 64;
+        used += snapped;
+        items[i].style.height = height.toFixed(2) + 'px';
+        items[i].style.width = snapped + 'px';
+      }
     }
-    flushRow(true); // leftover items
   }
+}
+
+/* Pure justified packing. Given aspect ratios (w/h), the container width,
+   the gap and the target row height, returns rows as { start, end, height,
+   full } (end exclusive). A full row's height is chosen so its items' widths
+   (ar × height) plus gaps fill the width exactly; the last, incomplete row
+   (full: false) keeps the target height. Nothing is stretched, so nothing is
+   cropped. */
+function packRows(ars, width, gap, targetH) {
+  const rows = [];
+  let start = 0;   // first item of the row being built
+  let arSum = 0;   // sum of its aspect ratios so far
+
+  for (let i = 0; i < ars.length; i++) {
+    const n = i - start + 1; // items in the row if i joins it
+    const withAr = arSum + ars[i];
+    if (withAr * targetH + (n - 1) * gap < width) {
+      arSum = withAr; // still fits at the target height
+      continue;
+    }
+
+    // Item i overflows the target height. Either squeeze it into this row
+    // (row gets shorter) or close the row before it (row gets taller): take
+    // whichever height is closer to the target, in ratio terms so a 0.8×
+    // squeeze and a 1.25× stretch count the same. A row keeps at least one
+    // item, so a single panorama simply becomes a short row of its own.
+    const hWith = (width - (n - 1) * gap) / withAr;
+    const hWithout = n > 1 ? (width - (n - 2) * gap) / arSum : Infinity;
+    const closer = (h) => Math.abs(Math.log(h / targetH));
+    if (n > 1 && closer(hWithout) < closer(hWith)) {
+      rows.push({ start, end: i, height: hWithout, full: true });
+      start = i;
+      arSum = ars[i];
+      if (ars[i] * targetH >= width) { // too wide even on its own
+        rows.push({ start, end: i + 1, height: width / ars[i], full: true });
+        start = i + 1;
+        arSum = 0;
+      }
+    } else {
+      rows.push({ start, end: i + 1, height: hWith, full: true });
+      start = i + 1;
+      arSum = 0;
+    }
+  }
+  if (start < ars.length) rows.push({ start, end: ars.length, height: targetH, full: false });
+  return rows;
 }
 
 class MediaGallerySettingTab extends obsidian.PluginSettingTab {
@@ -396,3 +434,4 @@ class MediaGallerySettingTab extends obsidian.PluginSettingTab {
 }
 
 module.exports = MediaGalleryPlugin;
+module.exports.packRows = packRows; // exposed for test/pack.test.js

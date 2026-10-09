@@ -16,14 +16,20 @@ images sit side by side, each shown in full.
 ## No build step
 
 The plugin ships as hand-written source — there is no bundler, transpiler, `package.json`,
-`node_modules`, tests, or linter. The three files in the repo root (`main.js`, `manifest.json`,
+`node_modules`, or linter. The three files in the repo root (`main.js`, `manifest.json`,
 `styles.css`) are the deployable artifact as-is — they must stay in the root, because Obsidian
 reads `manifest.json` from the repository root to publish and update the plugin. `main.js` is plain CommonJS
 (`require('obsidian')` / `module.exports`), not TypeScript or ESM. Edit these files directly.
 
 ## Deploy / test loop
 
-There is no automated test suite; you verify by hand in Obsidian.
+Rendering is verified by hand in Obsidian. The one pure piece, the row-packing function
+`packRows`, has a `node:test` suite (no dependencies; `main.js` is loaded with a stubbed
+`obsidian` module):
+
+```powershell
+node --test
+```
 
 ```powershell
 ./deploy.ps1                          # copy the plugin files into the local dev_vault and enable it
@@ -54,10 +60,14 @@ The justified pipeline (`main.js`):
 2. `setupJustified` marks the callout (`data-mgReady` guards against re-processing), then wires
    a `ResizeObserver` on the content plus `load` / `loadedmetadata` listeners on each
    `img`/`video`, so `layout` re-runs on pane resize and as media dimensions become known.
-3. `layout` is the core algorithm: greedily pack items into a row until their combined width at
-   the target height would overflow, then scale that row's height so widths (each
-   `aspectRatio × height`) fill the container exactly. The last, incomplete row keeps the target
-   height. Because width always equals `ar × height`, nothing is stretched or cropped.
+3. `layout` reads each item's aspect ratio and the content's fractional width, calls `packRows`
+   and writes inline sizes. `packRows` (pure, exported for the tests) adds items to a row until
+   the next one overflows the target height, then either squeezes it in or closes the row before
+   it — whichever row height is closer to the target. A full row's height makes widths (each
+   `aspectRatio × height`) plus gaps fill the container exactly; the last, incomplete row keeps
+   the target height. Widths are snapped down to 1/64 px (Chromium's layout grid) and the last
+   item of a full row takes the remainder, so rows end flush and never wrap. Because width
+   always equals `ar × height`, nothing is stretched or cropped.
 
 `styles.css` strips the callout chrome, flattens Obsidian's `<p>`/`<div>` wrappers with
 `display: contents` (so each `img`/`video` is a direct flex/column child), and breaks the

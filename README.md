@@ -106,6 +106,8 @@ The plugin sources (`manifest.json`, `main.js`, `styles.css`) live in the reposi
 
 After deploying, reload Obsidian (`Ctrl+P → Reload app without saving`) and enable **Metal Media Gallery** under *Settings → Community plugins*.
 
+The row-packing algorithm has a small dependency-free test suite: `node --test`.
+
 ### Release
 
 ```powershell
@@ -124,6 +126,7 @@ Bump `version` in `manifest.json` first. The script prints the `gh release creat
 | `styles.css` | Callout chrome, width breakout, masonry |
 | `deploy.ps1` | Copies the plugin into a vault; `-Watch` mode |
 | `release.ps1` | Packs `dist/metal-media-gallery.zip` for a release |
+| `test/pack.test.js` | Tests for the row-packing algorithm (`node --test`) |
 
 ## License
 
