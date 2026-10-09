@@ -9,6 +9,10 @@
   border: none;
   border-radius: 0;
   background: transparent;
+  /* Obsidian blends callouts into the page (lighten in dark themes, darken in
+     light ones), which washes out the media. Show the pixels as they are. */
+  --callout-blend-mode: normal;
+  mix-blend-mode: normal;
 }
 .markdown-preview-view .callout[data-callout^="gallery"] > .callout-title {
   display: none;
