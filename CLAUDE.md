@@ -61,6 +61,10 @@ The justified pipeline (`main.js`):
 2. `setupJustified` marks the callout (`data-mgReady` guards against re-processing), then wires
    a `ResizeObserver` on the content plus `load` / `loadedmetadata` listeners on each
    `img`/`video`, so `layout` re-runs on pane resize and as media dimensions become known.
+   Load-driven re-layouts are coalesced into 100 ms windows and skipped when the measured
+   ratio matches what the layout already assumed (from the per-URL cache); `layout` itself only
+   rewrites the inline size of items whose size changed. Images get `decoding="async"`, and the
+   stylesheet gives items `content-visibility: auto` so off-screen rows aren't painted/decoded.
 3. `layout` reads each item's aspect ratio and the content's fractional width, calls `packRows`
    and writes inline sizes. `packRows` (pure, exported for the tests) adds items to a row until
    the next one overflows the target height, then either squeezes it in or closes the row before

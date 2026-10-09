@@ -15,6 +15,18 @@
 
 const obsidian = require('obsidian');
 
+/* Per-element state from the last layout: the aspect ratio it assumed and the
+   size strings it wrote. Weak so discarded galleries take their entries along. */
+const usedAr = new WeakMap();
+const written = new WeakMap();
+
+/* Measured aspect ratio (w/h) of an img/video, or 0 while it is still unknown. */
+function measureAr(el) {
+  const w = el.naturalWidth || el.videoWidth || 0;
+  const h = el.naturalHeight || el.videoHeight || 0;
+  return h > 0 ? w / h : 0;
+}
+
 const DEFAULT_SETTINGS = {
   rowHeight: 220,   // [!gallery] target row height (px)
   columns: 3,       // [!gallery-masonry] column count (maximum)
@@ -272,19 +284,28 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     const child = new obsidian.MarkdownRenderChild(callout);
     const imgs = Array.from(content.querySelectorAll('img, video'));
 
-    // Batch the flood of per-image load events into one layout per frame.
     // A large gallery fires many load/loadedmetadata events in quick
-    // succession, and running the full pack on each is O(n²). The initial
+    // succession, and each full re-layout re-flows the whole gallery, so
+    // they are coalesced into one layout per 100 ms window. The initial
     // layout and resize layout stay synchronous so the gallery sizes
     // correctly on first paint even when images come from cache.
-    let scheduled = false;
+    let timer = null;
     const relayoutBatched = () => {
-      if (scheduled) return;
-      scheduled = true;
-      requestAnimationFrame(() => {
-        scheduled = false;
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
         this.layout(content);
-      });
+      }, 100);
+    };
+    child.register(() => clearTimeout(timer));
+
+    // A load whose measured ratio matches what the layout already assumed
+    // (from the URL cache) changes nothing, so it doesn't trigger a layout.
+    const onMedia = (e) => {
+      const el = e.target;
+      const ar = measureAr(el);
+      if (ar && usedAr.has(el) && Math.abs(ar - usedAr.get(el)) < 1e-3) return;
+      relayoutBatched();
     };
 
     imgs.forEach((img) => {
@@ -293,10 +314,10 @@ class MediaGalleryPlugin extends obsidian.Plugin {
         // into view otherwise stalls the frame while each one is decoded.
         img.decoding = 'async';
         if (img.complete && img.naturalWidth) return;
-        img.addEventListener('load', relayoutBatched);
-        img.addEventListener('error', relayoutBatched);
+        img.addEventListener('load', onMedia);
+        img.addEventListener('error', onMedia);
       } else {
-        img.addEventListener('loadedmetadata', relayoutBatched);
+        img.addEventListener('loadedmetadata', onMedia);
       }
     });
 
@@ -351,12 +372,11 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     // Aspect ratio (w/h) for each item: measured once loaded, remembered by
     // URL for next time, and 3:2 as a placeholder until either is available.
     const ars = items.map((el) => {
-      const w = el.naturalWidth || el.videoWidth || 0;
-      const h = el.naturalHeight || el.videoHeight || 0;
+      const measured = measureAr(el);
       const src = el.currentSrc || el.src;
-      if (h > 0) {
-        if (src) this.rememberAr(src, w / h);
-        return w / h;
+      if (measured) {
+        if (src) this.rememberAr(src, measured);
+        return measured;
       }
       return (src && this.arCache.get(src)) || 3 / 2;
     });
@@ -372,8 +392,16 @@ class MediaGalleryPlugin extends obsidian.Plugin {
           : ars[i] * height;
         const snapped = Math.floor(w * 64) / 64;
         used += snapped;
-        items[i].style.height = height.toFixed(2) + 'px';
-        items[i].style.width = snapped + 'px';
+        const el = items[i];
+        usedAr.set(el, ars[i]);
+        // Only touch elements whose size actually changed, so a late image
+        // load doesn't invalidate the style of every row above it.
+        const size = height.toFixed(2) + 'px ' + snapped + 'px';
+        if (written.get(el) !== size) {
+          written.set(el, size);
+          el.style.height = height.toFixed(2) + 'px';
+          el.style.width = snapped + 'px';
+        }
       }
     }
   }
