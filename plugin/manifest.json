@@ -1,6 +1,6 @@
 {
-  "id": "media-gallery",
-  "name": "Media Gallery",
+  "id": "metal-media-gallery",
+  "name": "Metal Media Gallery",
   "version": "0.1.0",
   "minAppVersion": "1.0.0",
   "description": "Justified & masonry image galleries in reading view via > [!gallery] callouts. No cropping.",

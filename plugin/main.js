@@ -1,7 +1,7 @@
 'use strict';
 
 /*
- * Media Gallery — Obsidian plugin
+ * Metal Media Gallery — Obsidian plugin
  * -------------------------------------------------------------------------
  * Turns callouts into image galleries in reading view:
  *
@@ -112,7 +112,7 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     if (view && view.editor) {
       fn(view.editor);
     } else {
-      new obsidian.Notice('Media Gallery: open a note in editing mode first.');
+      new obsidian.Notice('Metal Media Gallery: open a note in editing mode first.');
     }
   }
 
@@ -200,7 +200,7 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     } else {
       const cur = editor.getCursor().line;
       if (!isQuote(cur)) {
-        new obsidian.Notice('Media Gallery: cursor is not inside a callout.');
+        new obsidian.Notice('Metal Media Gallery: cursor is not inside a callout.');
         return;
       }
       const last = editor.lastLine();

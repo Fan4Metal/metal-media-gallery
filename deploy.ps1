@@ -1,4 +1,4 @@
-# Deploys the Media Gallery plugin into a dev vault.
+# Deploys the Metal Media Gallery plugin into a dev vault.
 # Usage:  ./deploy.ps1                 deploy once to ./dev_vault
 #         ./deploy.ps1 -Watch          deploy, then re-deploy on every change
 #         ./deploy.ps1 -Vault "C:\Path\To\OtherVault"
@@ -23,7 +23,7 @@ if (-not (Test-Path (Join-Path $Vault '.obsidian'))) {
 }
 
 $pluginSrc = Join-Path $PSScriptRoot 'plugin'
-$pluginId  = 'media-gallery'
+$pluginId  = 'metal-media-gallery'
 $pluginDst = Join-Path $Vault ".obsidian\plugins\$pluginId"
 
 if (-not (Test-Path $pluginSrc)) {

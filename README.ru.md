@@ -1,4 +1,4 @@
-# Media Gallery
+# Metal Media Gallery
 
 [English](README.md) · **Русский**
 
@@ -44,9 +44,9 @@
 
 Вместо ручного набора callout'а достаточно выделить строки с картинками и запустить команду:
 
-- **Media Gallery: Wrap selection in gallery callout**
-- **Media Gallery: Wrap selection in masonry gallery callout**
-- **Media Gallery: Remove gallery callout wrapping**
+- **Metal Media Gallery: Wrap selection in gallery callout**
+- **Metal Media Gallery: Wrap selection in masonry gallery callout**
+- **Metal Media Gallery: Remove gallery callout wrapping**
 
 Нужная команда запускается из палитры команд (`Ctrl/Cmd+P`); также ей можно назначить горячую клавишу в **Settings → Hotkeys**. Каждая выделенная строка получит префикс `> `, а сверху добавится заголовок `> [!gallery]`. Если ничего не выделено — обернётся текущая строка.
 
@@ -54,11 +54,11 @@
 
 **Снятие обёртки** убирает заголовок `[!gallery]` и один уровень `> ` — достаточно выделения либо курсора внутри callout'а, и блок определится автоматически.
 
-Есть также **кнопка на ленте** (левая панель, иконка сетки): после выделения строк с картинками нажатие кнопки предлагает выбор *Justified*, *Masonry* или *Remove gallery*. Скрыть кнопку можно в **Settings → Media Gallery → Ribbon button**.
+Есть также **кнопка на ленте** (левая панель, иконка сетки): после выделения строк с картинками нажатие кнопки предлагает выбор *Justified*, *Masonry* или *Remove gallery*. Скрыть кнопку можно в **Settings → Metal Media Gallery → Ribbon button**.
 
 ## Настройки
 
-Настройки расположены в **Settings → Media Gallery**:
+Настройки расположены в **Settings → Metal Media Gallery**:
 
 | Настройка | Что делает | По умолчанию |
 | --- | --- | --- |
@@ -82,10 +82,10 @@
 Плагина пока нет в каталоге сообщества, поэтому установка выполняется вручную:
 
 1. Загрузить три файла плагина: `manifest.json`, `main.js`, `styles.css` (из папки `plugin/` этого репозитория или из релиза).
-2. В хранилище создать папку `<хранилище>/.obsidian/plugins/media-gallery/`.
+2. В хранилище создать папку `<хранилище>/.obsidian/plugins/metal-media-gallery/`.
 3. Скопировать три файла в эту папку.
 4. Открыть **Settings → Community plugins**. Если включён *Restricted mode*, его следует выключить.
-5. Нажать **Reload plugins** (или перезапустить Obsidian), найти в списке **Media Gallery** и включить.
+5. Нажать **Reload plugins** (или перезапустить Obsidian), найти в списке **Metal Media Gallery** и включить.
 6. *(Рекомендуется)* Включить **Settings → Editor → Readable line length**, чтобы галереи могли быть шире текстовой колонки.
 
 > **Примечание:** `.obsidian` — скрытая папка. Показ скрытых файлов включается в проводнике, либо папку можно открыть через **Settings → About → Open vault folder** в Obsidian, а затем перейти в `.obsidian/plugins`.
@@ -105,7 +105,7 @@
 ./deploy.ps1 -Vault "C:\Path\To\Vault"
 ```
 
-После деплоя следует перезагрузить Obsidian (`Ctrl+P → Reload app without saving`) и включить **Media Gallery** в *Settings → Community plugins*.
+После деплоя следует перезагрузить Obsidian (`Ctrl+P → Reload app without saving`) и включить **Metal Media Gallery** в *Settings → Community plugins*.
 
 ## Структура проекта
 

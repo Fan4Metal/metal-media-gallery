@@ -1,4 +1,4 @@
-# Media Gallery
+# Metal Media Gallery
 
 **English** · [Русский](README.ru.md)
 
@@ -44,9 +44,9 @@ Masonry variant:
 
 Instead of typing the callout by hand, select the image lines and run a command:
 
-- **Media Gallery: Wrap selection in gallery callout**
-- **Media Gallery: Wrap selection in masonry gallery callout**
-- **Media Gallery: Remove gallery callout wrapping**
+- **Metal Media Gallery: Wrap selection in gallery callout**
+- **Metal Media Gallery: Wrap selection in masonry gallery callout**
+- **Metal Media Gallery: Remove gallery callout wrapping**
 
 Open the command palette (`Ctrl/Cmd+P`) and run one, or assign a hotkey in **Settings → Hotkeys**. Each selected line gets a `> ` prefix and a `> [!gallery]` header is added on top. With no selection, it wraps the current line.
 
@@ -54,11 +54,11 @@ Open the command palette (`Ctrl/Cmd+P`) and run one, or assign a hotkey in **Set
 
 **Unwrap** removes the `[!gallery]` header and strips one level of `> ` — use a selection, or just place the cursor inside the callout and it detects the block automatically.
 
-There is also a **ribbon button** (left sidebar, grid icon): select your image lines, click it, and pick *Justified*, *Masonry*, or *Remove gallery*. Toggle it off in **Settings → Media Gallery → Ribbon button**.
+There is also a **ribbon button** (left sidebar, grid icon): select your image lines, click it, and pick *Justified*, *Masonry*, or *Remove gallery*. Toggle it off in **Settings → Metal Media Gallery → Ribbon button**.
 
 ## Settings
 
-Open **Settings → Media Gallery**:
+Open **Settings → Metal Media Gallery**:
 
 | Setting | What it does | Default |
 | --- | --- | --- |
@@ -82,10 +82,10 @@ Images are grouped greedily into rows: items are added until their combined widt
 The plugin is not in the community store yet, so install it manually:
 
 1. Download the three plugin files: `manifest.json`, `main.js`, `styles.css` (from this repository's `plugin/` folder, or a release).
-2. In your vault, create the folder `<your-vault>/.obsidian/plugins/media-gallery/`.
+2. In your vault, create the folder `<your-vault>/.obsidian/plugins/metal-media-gallery/`.
 3. Copy the three files into that folder.
 4. In Obsidian, open **Settings → Community plugins**. If *Restricted mode* is on, turn it off.
-5. Click **Reload plugins** (or restart Obsidian), then find **Media Gallery** in the list and enable it.
+5. Click **Reload plugins** (or restart Obsidian), then find **Metal Media Gallery** in the list and enable it.
 6. *(Recommended)* Enable **Settings → Editor → Readable line length** so galleries can be wider than the text column.
 
 > **Note:** `.obsidian` is a hidden folder. Enable "show hidden files" in your file manager, or open it via **Settings → About → Open vault folder** in Obsidian, then navigate into `.obsidian/plugins`.
@@ -105,7 +105,7 @@ The plugin sources live in the `plugin/` folder. A local `dev_vault/` (not commi
 ./deploy.ps1 -Vault "C:\Path\To\Vault"
 ```
 
-After deploying, reload Obsidian (`Ctrl+P → Reload app without saving`) and enable **Media Gallery** under *Settings → Community plugins*.
+After deploying, reload Obsidian (`Ctrl+P → Reload app without saving`) and enable **Metal Media Gallery** under *Settings → Community plugins*.
 
 ## Project layout
 

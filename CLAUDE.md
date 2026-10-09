@@ -9,7 +9,7 @@ In this project, append the `Co-Authored-By: Claude ...` trailer to commit messa
 
 ## What this is
 
-An Obsidian plugin ("Media Gallery") that renders `> [!gallery]` and `> [!gallery-masonry]`
+An Obsidian plugin ("Metal Media Gallery") that renders `> [!gallery]` and `> [!gallery-masonry]`
 callouts as image galleries in **reading view**, without cropping. Portrait and landscape
 images sit side by side, each shown in full.
 
@@ -30,12 +30,12 @@ There is no automated test suite; you verify by hand in Obsidian.
 ./deploy.ps1 -Vault "C:\Path\To\Vault"  # deploy to a different vault
 ```
 
-`deploy.ps1` copies the three files into `<vault>/.obsidian/plugins/media-gallery/` and adds
-`media-gallery` to `community-plugins.json`. After deploying, reload Obsidian
+`deploy.ps1` copies the three files into `<vault>/.obsidian/plugins/metal-media-gallery/` and adds
+`metal-media-gallery` to `community-plugins.json`. After deploying, reload Obsidian
 (`Ctrl+P → Reload app without saving`) to pick up changes.
 
 `dev_vault/` is a local test vault and is **not committed** (see `.gitignore`). Its deployed
-plugin copy under `.obsidian/plugins/media-gallery/` is git-ignored — the sources of truth live
+plugin copy under `.obsidian/plugins/metal-media-gallery/` is git-ignored — the sources of truth live
 in `plugin/`, never edit the deployed copy.
 
 ## Architecture (three files, one flow)
