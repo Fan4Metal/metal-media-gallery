@@ -75,7 +75,8 @@
 /* [!gallery-masonry] — Pinterest-style columns (pure CSS)                   */
 /* ========================================================================= */
 .markdown-preview-view .callout[data-callout="gallery-masonry"] > .callout-content {
-  column-count: var(--mg-columns, 3);
+  /* width + count: at most --mg-columns, fewer if they'd be narrower than --mg-col-width */
+  columns: var(--mg-col-width, 180px) var(--mg-columns, 3);
   column-gap: var(--mg-gap, 7px);
 }
 .markdown-preview-view .callout[data-callout="gallery-masonry"] img,

@@ -63,7 +63,8 @@ Open **Settings → Metal Media Gallery**:
 | Setting | What it does | Default |
 | --- | --- | --- |
 | Row height (justified) | Target row height for `[!gallery]` | 220 px |
-| Columns (masonry) | Column count for `[!gallery-masonry]` | 3 |
+| Columns (masonry) | Maximum column count for `[!gallery-masonry]` | 3 |
+| Min column width (masonry) | Narrow panes and phones use fewer columns so each stays at least this wide | 180 px |
 | Gap | Space between items | 7 px |
 | Border radius | Corner radius of images/videos | 6 px |
 | Gallery width | Width relative to the text column (needs *Readable line length* on) | 140% |

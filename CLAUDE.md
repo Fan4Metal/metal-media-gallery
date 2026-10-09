@@ -49,7 +49,8 @@ in the repo root, never edit the deployed copy.
 
 The plugin's two gallery modes are handled by completely different mechanisms:
 
-- **`[!gallery-masonry]` is pure CSS** — CSS `column-count` in `styles.css`. No JS involved.
+- **`[!gallery-masonry]` is pure CSS** — the CSS `columns` shorthand (min width + max count) in
+  `styles.css`. No JS involved.
 - **`[!gallery]` (justified) is computed in JS** — CSS alone can't fill rows edge-to-edge
   without cropping, so `main.js` sizes each image inline.
 
@@ -76,7 +77,7 @@ gallery out wider than the text column via `--mg-width` (requires *Readable line
 ### Settings ↔ CSS bridge
 
 Settings live in one `DEFAULT_SETTINGS` object, persisted via `loadData`/`saveData`. Most
-settings (gap, radius, columns, width) are pushed to `--mg-*` CSS custom properties on
+settings (gap, radius, columns, column width, width) are pushed to `--mg-*` CSS custom properties on
 `document.body` by `applyCssVars`; the CSS reads them with fallbacks. Only `rowHeight` and `gap`
 also feed the JS `layout` directly. `saveSettings` re-applies the vars **and** re-runs `layout`
 on every visible justified gallery so changes appear live. When adding a setting, update

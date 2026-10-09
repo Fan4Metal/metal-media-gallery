@@ -17,7 +17,8 @@ const obsidian = require('obsidian');
 
 const DEFAULT_SETTINGS = {
   rowHeight: 220,   // [!gallery] target row height (px)
-  columns: 3,       // [!gallery-masonry] column count
+  columns: 3,       // [!gallery-masonry] column count (maximum)
+  columnWidth: 180, // [!gallery-masonry] minimum column width (px); narrow panes drop columns
   gap: 7,           // gap between items (px)
   radius: 6,        // corner radius (px)
   width: 140,       // gallery width relative to text column (%)
@@ -86,6 +87,7 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     const root = doc.body;
     root.style.setProperty('--mg-row-height', s.rowHeight + 'px');
     root.style.setProperty('--mg-columns', String(s.columns));
+    root.style.setProperty('--mg-col-width', s.columnWidth + 'px');
     root.style.setProperty('--mg-gap', s.gap + 'px');
     root.style.setProperty('--mg-radius', s.radius + 'px');
     root.style.setProperty('--mg-width', s.width + '%');
@@ -442,7 +444,8 @@ class MediaGallerySettingTab extends obsidian.PluginSettingTab {
       );
 
     slider('Row height (justified)', 'Target row height for [!gallery], in px.', 'rowHeight', 80, 500, 10);
-    slider('Columns (masonry)', 'Number of columns for [!gallery-masonry].', 'columns', 1, 6, 1);
+    slider('Columns (masonry)', 'Maximum number of columns for [!gallery-masonry].', 'columns', 1, 6, 1);
+    slider('Min column width (masonry)', 'Narrow panes use fewer columns so each stays at least this wide, in px.', 'columnWidth', 80, 400, 10);
     slider('Gap', 'Gap between items, in px.', 'gap', 0, 60, 1);
     slider('Border radius', 'Corner radius of images and videos, in px.', 'radius', 0, 40, 1);
     slider('Gallery width', 'Width relative to the text column, in % (needs readable line width).', 'width', 100, 200, 5);
