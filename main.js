@@ -27,7 +27,6 @@ const DEFAULT_SETTINGS = {
 class MediaGalleryPlugin extends obsidian.Plugin {
   async onload() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-    this.observers = new Set();
 
     this.applyCssVars();
     this.addSettingTab(new MediaGallerySettingTab(this.app, this));
@@ -51,16 +50,11 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     this.ribbonEl = null;
     this.applyRibbon();
 
-    this.registerMarkdownPostProcessor((el) => {
-      el.querySelectorAll('.callout[data-callout="gallery"]').forEach((c) => {
-        this.setupJustified(c);
-      });
+    this.registerMarkdownPostProcessor((el, ctx) => {
+      const sel = '.callout[data-callout="gallery"]';
+      const callouts = el.matches(sel) ? [el] : Array.from(el.querySelectorAll(sel));
+      callouts.forEach((c) => this.setupJustified(c, ctx));
     });
-  }
-
-  onunload() {
-    this.observers.forEach((o) => o.disconnect());
-    this.observers.clear();
   }
 
   /* Push settings to CSS custom properties consumed by styles.css */
@@ -224,13 +218,17 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     );
   }
 
-  /* Wire up one justified gallery: mark it, then (re)layout on load & resize. */
-  setupJustified(callout) {
+  /* Wire up one justified gallery: mark it, then (re)layout on load & resize.
+     The ResizeObserver is tied to a MarkdownRenderChild so Obsidian disconnects
+     it when the rendered section is discarded; otherwise every re-render would
+     leave an observer (and the whole old DOM it references) alive. */
+  setupJustified(callout, ctx) {
     const content = callout.querySelector(':scope > .callout-content');
     if (!content || content.dataset.mgReady) return;
     content.dataset.mgReady = '1';
     content.classList.add('mg-justified');
 
+    const child = new obsidian.MarkdownRenderChild(callout);
     const imgs = Array.from(content.querySelectorAll('img, video'));
 
     // Batch the flood of per-image load events into one layout per frame.
@@ -259,10 +257,19 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     });
 
     // ResizeObserver is already throttled to at most one notification per
-    // frame, so layout runs synchronously here without the O(n²) risk.
-    const ro = new ResizeObserver(() => this.layout(content));
+    // frame, so layout runs synchronously here without the O(n²) risk. It
+    // also fires when layout itself changes the content's height, so skip
+    // notifications where the width (the only input) is unchanged.
+    let lastWidth = content.clientWidth;
+    const ro = new ResizeObserver(() => {
+      const w = content.clientWidth;
+      if (w === lastWidth) return;
+      lastWidth = w;
+      this.layout(content);
+    });
     ro.observe(content);
-    this.observers.add(ro);
+    child.register(() => ro.disconnect());
+    ctx.addChild(child);
 
     this.layout(content);
   }
