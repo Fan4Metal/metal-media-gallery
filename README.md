@@ -70,7 +70,7 @@ Open **Settings → Metal Media Gallery**:
 
 ## How the justified layout works
 
-Images are grouped greedily into rows: items are added until their combined width at the target height would overflow the container, then the whole row is scaled so its widths — each proportional to the image's aspect ratio — fill the row exactly. Because width equals `aspectRatio × height`, every image keeps its true proportions: no `object-fit: cover`, no cropping. The last, incomplete row keeps the target height and is left-aligned.
+Images are grouped into rows: items are added until the next one would overflow the container at the target height. That item is then either squeezed into the row or starts the next one, whichever leaves the row height closer to the target. Each full row is scaled so its widths — each proportional to the image's aspect ratio — fill the row exactly. Because width equals `aspectRatio × height`, every image keeps its true proportions: no cropping. The last, incomplete row keeps the target height and is left-aligned. Aspect ratios are remembered per image, so a note you return to lays out correctly before its images have reloaded.
 
 ## Requirements
 

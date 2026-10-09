@@ -29,6 +29,9 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     // Sliders call saveSettings on every tick; write data.json once they settle.
     this.persistSettings = obsidian.debounce(() => this.saveData(this.settings), 500, true);
+    // Aspect ratio by image URL. A note re-rendered or re-opened lays out
+    // correctly on the first pass instead of jumping once the images load.
+    this.arCache = new Map();
 
     this.applyCssVars();
     // Popout windows have their own document, so style each as it opens.
@@ -300,6 +303,13 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     this.layout(content);
   }
 
+  rememberAr(src, ar) {
+    if (this.arCache.size >= 4000 && !this.arCache.has(src)) {
+      this.arCache.delete(this.arCache.keys().next().value); // drop the oldest
+    }
+    this.arCache.set(src, ar);
+  }
+
   /* Size the items of one justified gallery (the packing itself is packRows). */
   layout(content) {
     // Post processors also run on callouts in Live Preview, where styles.css
@@ -317,11 +327,17 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     const gap = this.settings.gap;
     const targetH = this.settings.rowHeight;
 
-    // Aspect ratio (w/h) for each item, with sane fallbacks while loading.
+    // Aspect ratio (w/h) for each item: measured once loaded, remembered by
+    // URL for next time, and 3:2 as a placeholder until either is available.
     const ars = items.map((el) => {
       const w = el.naturalWidth || el.videoWidth || 0;
       const h = el.naturalHeight || el.videoHeight || 0;
-      return h > 0 ? w / h : 3 / 2;
+      const src = el.currentSrc || el.src;
+      if (h > 0) {
+        if (src) this.rememberAr(src, w / h);
+        return w / h;
+      }
+      return (src && this.arCache.get(src)) || 3 / 2;
     });
 
     for (const { start, end, height, full } of packRows(ars, width, gap, targetH)) {
