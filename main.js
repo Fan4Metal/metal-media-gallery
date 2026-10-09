@@ -82,19 +82,30 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     this.documents().forEach((doc) => this.applyCssVarsTo(doc));
   }
 
-  applyCssVarsTo(doc) {
+  cssVars() {
     const s = this.settings;
-    const root = doc.body;
-    root.style.setProperty('--mg-row-height', s.rowHeight + 'px');
-    root.style.setProperty('--mg-columns', String(s.columns));
-    root.style.setProperty('--mg-col-width', s.columnWidth + 'px');
-    root.style.setProperty('--mg-gap', s.gap + 'px');
-    root.style.setProperty('--mg-radius', s.radius + 'px');
-    root.style.setProperty('--mg-width', s.width + '%');
+    return {
+      '--mg-columns': String(s.columns),
+      '--mg-col-width': s.columnWidth + 'px',
+      '--mg-gap': s.gap + 'px',
+      '--mg-radius': s.radius + 'px',
+      '--mg-width': s.width + '%',
+    };
+  }
+
+  applyCssVarsTo(doc) {
+    const vars = this.cssVars();
+    for (const name in vars) doc.body.style.setProperty(name, vars[name]);
+  }
+
+  removeCssVars() {
+    const names = Object.keys(this.cssVars());
+    this.documents().forEach((doc) => names.forEach((n) => doc.body.style.removeProperty(n)));
   }
 
   onunload() {
     this.persistSettings.run(); // flush a pending write
+    this.removeCssVars();
   }
 
   saveSettings() {
@@ -257,7 +268,6 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     const content = callout.querySelector(':scope > .callout-content');
     if (!content || content.dataset.mgReady) return;
     content.dataset.mgReady = '1';
-    content.classList.add('mg-justified');
 
     const child = new obsidian.MarkdownRenderChild(callout);
     const imgs = Array.from(content.querySelectorAll('img, video'));
@@ -318,7 +328,13 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     // doesn't apply; sizing the images there would only shrink them in place.
     if (!content.closest('.markdown-preview-view')) return;
 
-    const items = Array.from(content.querySelectorAll('img, video'));
+    // An image that finished loading with no pixels is broken; keep its
+    // placeholder icon out of the rows instead of giving it a 3:2 slot.
+    const items = Array.from(content.querySelectorAll('img, video')).filter((el) => {
+      const broken = el.tagName === 'IMG' && el.complete && !el.naturalWidth;
+      el.classList.toggle('mg-broken', broken);
+      return !broken;
+    });
     if (!items.length) return;
 
     // Fractional, not clientWidth: that is rounded, and rounding up by half
