@@ -289,6 +289,9 @@ class MediaGalleryPlugin extends obsidian.Plugin {
 
     imgs.forEach((img) => {
       if (img.tagName === 'IMG') {
+        // Decode off the main thread: a row of camera-sized photos scrolling
+        // into view otherwise stalls the frame while each one is decoded.
+        img.decoding = 'async';
         if (img.complete && img.naturalWidth) return;
         img.addEventListener('load', relayoutBatched);
         img.addEventListener('error', relayoutBatched);
