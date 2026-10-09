@@ -7,7 +7,7 @@
 # Create it yourself (any Obsidian vault works) or pass -Vault to point
 # elsewhere. The script throws if the target has no .obsidian folder.
 #
-# Note: galleries are now handled by the plugin under ./plugin. The old CSS
+# Note: galleries are now handled by the plugin in the repo root. The old CSS
 # snippets (media-*.css) are superseded — disable them in Obsidian
 # (Settings -> Appearance -> CSS snippets). This script no longer deploys them.
 
@@ -22,17 +22,14 @@ if (-not (Test-Path (Join-Path $Vault '.obsidian'))) {
     throw "Not an Obsidian vault (no .obsidian folder): $Vault"
 }
 
-$pluginSrc = Join-Path $PSScriptRoot 'plugin'
-$pluginId  = 'metal-media-gallery'
-$pluginDst = Join-Path $Vault ".obsidian\plugins\$pluginId"
-
-if (-not (Test-Path $pluginSrc)) {
-    throw "Plugin source not found: $pluginSrc"
-}
+$pluginSrc   = $PSScriptRoot
+$pluginId    = 'metal-media-gallery'
+$pluginDst   = Join-Path $Vault ".obsidian\plugins\$pluginId"
+$pluginFiles = @('manifest.json', 'main.js', 'styles.css')
 
 function Invoke-Deploy {
     New-Item -ItemType Directory -Force -Path $pluginDst | Out-Null
-    foreach ($f in @('manifest.json', 'main.js', 'styles.css')) {
+    foreach ($f in $pluginFiles) {
         $src = Join-Path $pluginSrc $f
         if (Test-Path $src) {
             Copy-Item -Path $src -Destination (Join-Path $pluginDst $f) -Force
@@ -42,10 +39,13 @@ function Invoke-Deploy {
 
     # Ensure the plugin is enabled in community-plugins.json
     $cpFile = Join-Path $Vault '.obsidian\community-plugins.json'
-    $list = if (Test-Path $cpFile) { @(Get-Content $cpFile -Raw | ConvertFrom-Json) } else { @() }
+    # ForEach-Object flattens the parsed array the same way in Windows PowerShell 5.1 and pwsh 7.
+    $list = @(if (Test-Path $cpFile) { Get-Content $cpFile -Raw | ConvertFrom-Json | ForEach-Object { $_ } })
     if ($list -notcontains $pluginId) {
         $list += $pluginId
-        ($list | ConvertTo-Json) | Set-Content -Path $cpFile -Encoding UTF8
+        # -InputObject keeps a one-item list a JSON array; piping would unwrap it to a string.
+        # WriteAllText writes UTF-8 without the BOM that Set-Content adds on Windows PowerShell 5.1.
+        [System.IO.File]::WriteAllText($cpFile, (ConvertTo-Json -InputObject @($list)))
         Write-Host "  enabled '$pluginId' in community-plugins.json" -ForegroundColor Yellow
     }
 }
@@ -66,7 +66,7 @@ $watcher.EnableRaisingEvents = $true
 try {
     while ($true) {
         $change = $watcher.WaitForChanged([System.IO.WatcherChangeTypes]::Changed, 1000)
-        if ($change.TimedOut) { continue }
+        if ($change.TimedOut -or $pluginFiles -notcontains $change.Name) { continue }
         Start-Sleep -Milliseconds 150   # let the editor finish writing
         try { Invoke-Deploy } catch { Write-Host "deploy failed: $_" -ForegroundColor Red }
     }

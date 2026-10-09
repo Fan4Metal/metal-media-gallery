@@ -81,21 +81,20 @@ Images are grouped greedily into rows: items are added until their combined widt
 
 The plugin is not in the community store yet, so install it manually:
 
-1. Download the three plugin files: `manifest.json`, `main.js`, `styles.css` (from this repository's `plugin/` folder, or a release).
-2. In your vault, create the folder `<your-vault>/.obsidian/plugins/metal-media-gallery/`.
-3. Copy the three files into that folder.
-4. In Obsidian, open **Settings → Community plugins**. If *Restricted mode* is on, turn it off.
-5. Click **Reload plugins** (or restart Obsidian), then find **Metal Media Gallery** in the list and enable it.
-6. *(Recommended)* Enable **Settings → Editor → Readable line length** so galleries can be wider than the text column.
+1. Download `metal-media-gallery.zip` from the [latest release](https://github.com/Fan4Metal/metal-media-gallery/releases/latest) and unzip it into `<your-vault>/.obsidian/plugins/`. This gives you the folder `<your-vault>/.obsidian/plugins/metal-media-gallery/` with the three plugin files.
+   *Alternatively*, create that folder yourself and copy `manifest.json`, `main.js` and `styles.css` into it (from the release or from the root of this repository).
+2. In Obsidian, open **Settings → Community plugins**. If *Restricted mode* is on, turn it off.
+3. Click **Reload plugins** (or restart Obsidian), then find **Metal Media Gallery** in the list and enable it.
+4. *(Recommended)* Enable **Settings → Editor → Readable line length** so galleries can be wider than the text column.
 
 > **Note:** `.obsidian` is a hidden folder. Enable "show hidden files" in your file manager, or open it via **Settings → About → Open vault folder** in Obsidian, then navigate into `.obsidian/plugins`.
 
 ## Development
 
-The plugin sources live in the `plugin/` folder. A local `dev_vault/` (not committed) is used for testing.
+The plugin sources (`manifest.json`, `main.js`, `styles.css`) live in the repository root. A local `dev_vault/` (not committed) is used for testing.
 
 ```powershell
-# copies plugin/* into dev_vault and enables it
+# copies the plugin files into dev_vault and enables it
 ./deploy.ps1
 
 # re-deploy automatically on every change
@@ -107,14 +106,24 @@ The plugin sources live in the `plugin/` folder. A local `dev_vault/` (not commi
 
 After deploying, reload Obsidian (`Ctrl+P → Reload app without saving`) and enable **Metal Media Gallery** under *Settings → Community plugins*.
 
+### Release
+
+```powershell
+# packs dist/metal-media-gallery.zip (a ready-to-unzip plugin folder)
+./release.ps1
+```
+
+Bump `version` in `manifest.json` first. The script prints the `gh release create` command; the release tag must equal the version, and the three loose files are attached alongside the zip because Obsidian's installer downloads them individually.
+
 ## Project layout
 
 | Path | Purpose |
 | --- | --- |
-| `plugin/manifest.json` | Plugin manifest |
-| `plugin/main.js` | Post-processor + justified layout algorithm |
-| `plugin/styles.css` | Callout chrome, width breakout, masonry |
+| `manifest.json` | Plugin manifest |
+| `main.js` | Post-processor + justified layout algorithm |
+| `styles.css` | Callout chrome, width breakout, masonry |
 | `deploy.ps1` | Copies the plugin into a vault; `-Watch` mode |
+| `release.ps1` | Packs `dist/metal-media-gallery.zip` for a release |
 
 ## License
 

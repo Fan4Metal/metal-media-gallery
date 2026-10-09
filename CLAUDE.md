@@ -16,8 +16,9 @@ images sit side by side, each shown in full.
 ## No build step
 
 The plugin ships as hand-written source — there is no bundler, transpiler, `package.json`,
-`node_modules`, tests, or linter. The three files in `plugin/` (`main.js`, `manifest.json`,
-`styles.css`) are the deployable artifact as-is. `main.js` is plain CommonJS
+`node_modules`, tests, or linter. The three files in the repo root (`main.js`, `manifest.json`,
+`styles.css`) are the deployable artifact as-is — they must stay in the root, because Obsidian
+reads `manifest.json` from the repository root to publish and update the plugin. `main.js` is plain CommonJS
 (`require('obsidian')` / `module.exports`), not TypeScript or ESM. Edit these files directly.
 
 ## Deploy / test loop
@@ -25,7 +26,7 @@ The plugin ships as hand-written source — there is no bundler, transpiler, `pa
 There is no automated test suite; you verify by hand in Obsidian.
 
 ```powershell
-./deploy.ps1                          # copy plugin/* into the local dev_vault and enable it
+./deploy.ps1                          # copy the plugin files into the local dev_vault and enable it
 ./deploy.ps1 -Watch                   # re-deploy on every file change
 ./deploy.ps1 -Vault "C:\Path\To\Vault"  # deploy to a different vault
 ```
@@ -36,7 +37,7 @@ There is no automated test suite; you verify by hand in Obsidian.
 
 `dev_vault/` is a local test vault and is **not committed** (see `.gitignore`). Its deployed
 plugin copy under `.obsidian/plugins/metal-media-gallery/` is git-ignored — the sources of truth live
-in `plugin/`, never edit the deployed copy.
+in the repo root, never edit the deployed copy.
 
 ## Architecture (three files, one flow)
 
@@ -81,7 +82,11 @@ gallery rendering only happens in reading view. `withActiveEditor` bridges the r
 
 ## Manifest / release
 
-Bump `version` in `plugin/manifest.json` for releases. `minAppVersion` is `1.0.0` and
+Bump `version` in `manifest.json` for releases, then run `./release.ps1`: it packs
+`dist/metal-media-gallery.zip` (one `metal-media-gallery/` folder, `/`-separated entries) and prints the
+`gh release create <version> …` command. The tag must equal the version, and the three loose
+files go on the release next to the zip — Obsidian's installer downloads them individually.
+`dist/` is git-ignored. `minAppVersion` is `1.0.0` and
 `isDesktopOnly` is `false` (the plugin uses no desktop-only APIs).
 
 ## Docs

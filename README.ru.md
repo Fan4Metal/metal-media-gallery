@@ -81,21 +81,20 @@
 
 Плагина пока нет в каталоге сообщества, поэтому установка выполняется вручную:
 
-1. Загрузить три файла плагина: `manifest.json`, `main.js`, `styles.css` (из папки `plugin/` этого репозитория или из релиза).
-2. В хранилище создать папку `<хранилище>/.obsidian/plugins/metal-media-gallery/`.
-3. Скопировать три файла в эту папку.
-4. Открыть **Settings → Community plugins**. Если включён *Restricted mode*, его следует выключить.
-5. Нажать **Reload plugins** (или перезапустить Obsidian), найти в списке **Metal Media Gallery** и включить.
-6. *(Рекомендуется)* Включить **Settings → Editor → Readable line length**, чтобы галереи могли быть шире текстовой колонки.
+1. Загрузить `metal-media-gallery.zip` из [последнего релиза](https://github.com/Fan4Metal/metal-media-gallery/releases/latest) и распаковать его в `<хранилище>/.obsidian/plugins/`. В результате появится папка `<хранилище>/.obsidian/plugins/metal-media-gallery/` с тремя файлами плагина.
+   *Как вариант*, можно создать эту папку вручную и скопировать в неё `manifest.json`, `main.js` и `styles.css` (из релиза или из корня этого репозитория).
+2. Открыть **Settings → Community plugins**. Если включён *Restricted mode*, его следует выключить.
+3. Нажать **Reload plugins** (или перезапустить Obsidian), найти в списке **Metal Media Gallery** и включить.
+4. *(Рекомендуется)* Включить **Settings → Editor → Readable line length**, чтобы галереи могли быть шире текстовой колонки.
 
 > **Примечание:** `.obsidian` — скрытая папка. Показ скрытых файлов включается в проводнике, либо папку можно открыть через **Settings → About → Open vault folder** в Obsidian, а затем перейти в `.obsidian/plugins`.
 
 ## Разработка
 
-Исходники плагина — в папке `plugin/`. Для локального тестирования используется хранилище `dev_vault/` (в репозиторий не входит).
+Исходники плагина (`manifest.json`, `main.js`, `styles.css`) лежат в корне репозитория. Для локального тестирования используется хранилище `dev_vault/` (в репозиторий не входит).
 
 ```powershell
-# копирует plugin/* в dev_vault и включает плагин
+# копирует файлы плагина в dev_vault и включает плагин
 ./deploy.ps1
 
 # автодеплой при каждом изменении
@@ -107,14 +106,24 @@
 
 После деплоя следует перезагрузить Obsidian (`Ctrl+P → Reload app without saving`) и включить **Metal Media Gallery** в *Settings → Community plugins*.
 
+### Релиз
+
+```powershell
+# собирает dist/metal-media-gallery.zip (готовая к распаковке папка плагина)
+./release.ps1
+```
+
+Предварительно увеличивается `version` в `manifest.json`. Скрипт выводит команду `gh release create`; тег релиза должен совпадать с версией, а три файла прикладываются к релизу отдельно от архива, потому что установщик Obsidian скачивает их по одному.
+
 ## Структура проекта
 
 | Путь | Назначение |
 | --- | --- |
-| `plugin/manifest.json` | Манифест плагина |
-| `plugin/main.js` | Пост-процессор + алгоритм justified-раскладки |
-| `plugin/styles.css` | Оформление callout'а, вынос по ширине, масонри |
+| `manifest.json` | Манифест плагина |
+| `main.js` | Пост-процессор + алгоритм justified-раскладки |
+| `styles.css` | Оформление callout'а, вынос по ширине, масонри |
 | `deploy.ps1` | Копирует плагин в хранилище; режим `-Watch` |
+| `release.ps1` | Собирает `dist/metal-media-gallery.zip` для релиза |
 
 ## Лицензия
 

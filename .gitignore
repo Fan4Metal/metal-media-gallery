@@ -2,7 +2,10 @@
 .DS_Store
 Thumbs.db
 
-# Local test vault — not part of the repo; sources live in ./plugin.
+# Local test vault — not part of the repo; plugin sources live in the repo root.
 # Holds per-machine Obsidian state, deployed plugin copies, and possibly
 # secrets (e.g. plugin data.json API keys), so the whole folder is ignored.
 dev_vault/
+
+# Release zips built by release.ps1
+dist/
