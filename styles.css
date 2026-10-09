@@ -69,6 +69,9 @@
   margin: 0;
   object-fit: cover;   /* moot: width/height already match aspect ratio */
   border-radius: var(--mg-radius, 6px);
+  /* Off-screen rows are neither laid out nor painted (so not decoded either).
+     Safe here because every item has explicit inline width/height. */
+  content-visibility: auto;
 }
 .markdown-preview-view .callout[data-callout="gallery"] img.mg-broken {
   display: none;       /* failed to load; the JS leaves it out of the rows */
