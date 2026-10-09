@@ -116,13 +116,14 @@ The row-packing algorithm has a small dependency-free test suite: `node --test`.
 ./release.ps1
 ```
 
-Bump `version` in `manifest.json` first. The script prints the `gh release create` command; the release tag must equal the version, and the three loose files are attached alongside the zip because Obsidian's installer downloads them individually.
+Bump `version` in `manifest.json` and add it to `versions.json` first. The script prints the `gh release create` command; the release tag must equal the version, and the three loose files are attached alongside the zip because Obsidian's installer downloads them individually.
 
 ## Project layout
 
 | Path | Purpose |
 | --- | --- |
 | `manifest.json` | Plugin manifest |
+| `versions.json` | Plugin version → minimum Obsidian version |
 | `main.js` | Post-processor + justified layout algorithm |
 | `styles.css` | Callout chrome, width breakout, masonry |
 | `deploy.ps1` | Copies the plugin into a vault; `-Watch` mode |

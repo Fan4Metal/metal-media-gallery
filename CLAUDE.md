@@ -93,7 +93,8 @@ gallery rendering only happens in reading view. `withActiveEditor` bridges the r
 
 ## Manifest / release
 
-Bump `version` in `manifest.json` for releases, then run `./release.ps1`: it packs
+Bump `version` in `manifest.json` and add the same version to `versions.json` (version →
+minimum Obsidian version) for releases, then run `./release.ps1`: it packs
 `dist/metal-media-gallery.zip` (one `metal-media-gallery/` folder, `/`-separated entries) and prints the
 `gh release create <version> …` command. The tag must equal the version, and the three loose
 files go on the release next to the zip — Obsidian's installer downloads them individually.

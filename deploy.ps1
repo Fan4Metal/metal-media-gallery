@@ -60,12 +60,15 @@ if (-not $Watch) {
 Write-Host "Watching $pluginSrc for changes. Press Ctrl+C to stop." -ForegroundColor Cyan
 
 $watcher = [System.IO.FileSystemWatcher]::new($pluginSrc)
-$watcher.NotifyFilter = [System.IO.NotifyFilters]::LastWrite
+# FileName too: some editors save by writing a temp file and renaming it over
+# the original, which shows up as Renamed/Created rather than Changed.
+$watcher.NotifyFilter = [System.IO.NotifyFilters]::LastWrite -bor [System.IO.NotifyFilters]::FileName
 $watcher.EnableRaisingEvents = $true
+$kinds = [System.IO.WatcherChangeTypes]::Changed -bor [System.IO.WatcherChangeTypes]::Created -bor [System.IO.WatcherChangeTypes]::Renamed
 
 try {
     while ($true) {
-        $change = $watcher.WaitForChanged([System.IO.WatcherChangeTypes]::Changed, 1000)
+        $change = $watcher.WaitForChanged($kinds, 1000)
         if ($change.TimedOut -or $pluginFiles -notcontains $change.Name) { continue }
         Start-Sleep -Milliseconds 150   # let the editor finish writing
         try { Invoke-Deploy } catch { Write-Host "deploy failed: $_" -ForegroundColor Red }
