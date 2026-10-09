@@ -15,7 +15,7 @@ An Obsidian plugin that turns callouts into image galleries in reading view — 
 - **No cropping.** Portrait and landscape mix freely.
 - **Reflows** on pane resize and as images load.
 - **Wider than the text column** — the gallery breaks out beyond the readable line width (configurable).
-- **Lightbox-friendly** — pairs with the [Image Viewer](https://github.com/Fan4Metal/obsidian_image_viewer) plugin for click-to-zoom.
+- **Lightbox-friendly** — pairs with the [Metal Image Viewer](https://github.com/Fan4Metal/metal-image-viewer) plugin for click-to-zoom.
 
 ## Usage
 
