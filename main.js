@@ -27,6 +27,8 @@ const DEFAULT_SETTINGS = {
 class MediaGalleryPlugin extends obsidian.Plugin {
   async onload() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    // Sliders call saveSettings on every tick; write data.json once they settle.
+    this.persistSettings = obsidian.debounce(() => this.saveData(this.settings), 500, true);
 
     this.applyCssVars();
     // Popout windows have their own document, so style each as it opens.
@@ -86,8 +88,12 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     root.style.setProperty('--mg-width', s.width + '%');
   }
 
-  async saveSettings() {
-    await this.saveData(this.settings);
+  onunload() {
+    this.persistSettings.run(); // flush a pending write
+  }
+
+  saveSettings() {
+    this.persistSettings();
     this.applyCssVars();
     // Re-layout every visible justified gallery so changes show immediately.
     this.documents().forEach((doc) => {
@@ -296,6 +302,10 @@ class MediaGalleryPlugin extends obsidian.Plugin {
 
   /* The justified algorithm: greedy row fill, then scale each row to width. */
   layout(content) {
+    // Post processors also run on callouts in Live Preview, where styles.css
+    // doesn't apply; sizing the images there would only shrink them in place.
+    if (!content.closest('.markdown-preview-view')) return;
+
     const items = Array.from(content.querySelectorAll('img, video'));
     if (!items.length) return;
 
