@@ -23,9 +23,21 @@
 
 /* ---- Widen the gallery beyond the readable text column ------------------ */
 .markdown-preview-view.is-readable-line-width .callout[data-callout^="gallery"] {
-  width: var(--mg-width, 140%);
+  --mg-w: var(--mg-width, 140%);
+  width: var(--mg-w);
   max-width: none;
-  margin-inline: calc((100% - var(--mg-width, 140%)) / 2);
+  margin-inline: calc((100% - var(--mg-w)) / 2);
+}
+/* Cap the breakout at the pane: the view's content box (pane minus file
+   margins and scrollbar) is the container, so 100cqw is the usable width.
+   Narrow splits and phones then get 100% instead of a horizontal scroll. */
+@supports (width: 100cqw) {
+  .markdown-preview-view:has(.callout[data-callout^="gallery"]) {
+    container-type: inline-size;
+  }
+  .markdown-preview-view.is-readable-line-width .callout[data-callout^="gallery"] {
+    --mg-w: min(var(--mg-width, 140%), 100cqw);
+  }
 }
 
 /* ---- Flatten wrappers so each img/video is a direct layout item --------- */
@@ -53,6 +65,7 @@
 .markdown-preview-view .callout[data-callout="gallery"] video {
   display: block;
   flex: 0 0 auto;      /* never stretch — the JS sizes each item exactly */
+  box-sizing: border-box; /* a theme's border/padding must not widen the row */
   margin: 0;
   object-fit: cover;   /* moot: width/height already match aspect ratio */
   border-radius: var(--mg-radius, 6px);
