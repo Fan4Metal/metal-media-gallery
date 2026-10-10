@@ -655,9 +655,15 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       }
       let top = info.lineStart;
       while (top <= info.lineEnd && !GALLERY_HEADER.test(lines[top])) top++;
-      let bottom = top;
-      while (bottom < info.lineEnd && QUOTE.test(lines[bottom + 1])) bottom++;
-      const block = top <= info.lineEnd ? lines.slice(top, bottom + 1) : [];
+      let end = info.lineEnd;
+      while (end > top && !lines[end].trim()) end--;
+      // Lines right after the quote that don't start with ">" still belong
+      // to the callout (lazy continuation), so their images show in the
+      // gallery. Writing them with "> " keeps them there wherever the move
+      // takes them; it doesn't change what is rendered.
+      const block = top <= end
+        ? lines.slice(top, end + 1).map((l) => (QUOTE.test(l) ? l : quoteLine(l)))
+        : [];
       const embeds = findEmbeds(block);
       if (embeds.length !== units.length) {
         error = "couldn't match the images to the note's text (details in the console, Ctrl+Shift+I).";

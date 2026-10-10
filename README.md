@@ -65,6 +65,8 @@ In reading view, hold **Ctrl** (**Cmd** on macOS) and drag an image to another p
 
 If the gallery can't be matched to the note's text — the note changed in the meantime, or the gallery shows images from an embedded note — nothing is changed and a notice explains why.
 
+Lines placed right after a gallery without a `>` (and without a blank line in between) still belong to it in Markdown, so their images show in the gallery; reordering rewrites them with a `> ` prefix, which changes nothing visible. To keep images outside a gallery, leave a blank line after it.
+
 > **Tip:** for a single image, just embed it normally (outside a callout) — galleries are for groups.
 
 ### Quick-wrap command
