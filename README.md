@@ -48,11 +48,11 @@ Instead of typing the callout by hand, select the image lines and run a command:
 - **Metal Media Gallery: Wrap selection in masonry gallery callout**
 - **Metal Media Gallery: Remove gallery callout wrapping**
 
-Open the command palette (`Ctrl/Cmd+P`) and run one, or assign a hotkey in **Settings → Hotkeys**. Each selected line gets a `> ` prefix and a `> [!gallery]` header is added on top. With no selection, it wraps the current line.
+Open the command palette (`Ctrl/Cmd+P`) and run one, or assign a hotkey in **Settings → Hotkeys**. Each selected line gets a `> ` prefix and a `> [!gallery]` header is added on top. With no selection, it wraps the current line. Commands always act on whole lines, even if the selection starts or ends mid-line.
 
-> **Adding to an existing gallery.** If the selection includes lines that already belong to a gallery, the new lines are merged into it (they just get a `> ` prefix) — no second header is added, so you never get a nested gallery. The type is taken from the existing header. A fresh `> [!gallery]` is only created when the selection does *not* touch another gallery's lines.
+> **Adding to an existing gallery.** If the selection includes lines that already belong to a gallery, or sits right above or below one, the new lines are merged into it (they just get a `> ` prefix) — no second header is added, so you never get a nested gallery. The header stays on the first line, and the type is taken from it. A selection spanning two galleries merges them into one. A fresh `> [!gallery]` is only created when the selection does *not* touch another gallery.
 
-**Unwrap** removes the `[!gallery]` header and strips one level of `> ` — use a selection, or just place the cursor inside the callout and it detects the block automatically.
+**Unwrap** removes the `[!gallery]` header and strips one level of `> ` from the whole gallery — place the cursor anywhere inside it, or select lines to unwrap every gallery they touch. Other callouts and quotes are left alone.
 
 There is also a **ribbon button** (left sidebar, grid icon): select your image lines, click it, and pick *Justified*, *Masonry*, or *Remove gallery*. Toggle it off in **Settings → Metal Media Gallery → Ribbon button**.
 

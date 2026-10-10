@@ -27,6 +27,17 @@ function measureAr(el) {
   return h > 0 ? w / h : 0;
 }
 
+/* Markdown lines, for the editor commands: any blockquote line, and the
+   first line of a gallery callout. */
+const QUOTE = /^\s*>/;
+const GALLERY_HEADER = /^\s*>\s*\[!gallery(-masonry)?\]/i;
+
+/* A line moved into a callout; blank lines become a bare ">" so the
+   blockquote stays one block. */
+function quoteLine(line) {
+  return line.trim().length ? '> ' + line : '>';
+}
+
 const DEFAULT_SETTINGS = {
   rowHeight: 220,   // [!gallery] target row height (px)
   columns: 3,       // [!gallery-masonry] column count (maximum)
@@ -184,104 +195,116 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     this.withActiveEditor((editor) => this.unwrapSelection(editor));
   }
 
+  /* Whole lines covered by the selection, or the cursor's line. Commands
+     always act on whole lines, even when the selection starts or ends
+     mid-line; a selection that ends at the very start of a line (as after
+     Shift+Down) doesn't include that line. */
+  selectedLines(editor) {
+    const from = editor.getCursor('from');
+    const to = editor.getCursor('to');
+    const toLine = to.line > from.line && to.ch === 0 ? to.line - 1 : to.line;
+    return { fromLine: from.line, toLine };
+  }
+
+  /* First and last line of the blockquote that contains line n. */
+  quoteTop(editor, n) {
+    while (n > 0 && QUOTE.test(editor.getLine(n - 1))) n--;
+    return n;
+  }
+
+  quoteBottom(editor, n) {
+    const last = editor.lastLine();
+    while (n < last && QUOTE.test(editor.getLine(n + 1))) n++;
+    return n;
+  }
+
+  /* Replace lines a..b with `lines`, adding blank lines where a neighbour
+     would otherwise run into the callout: a quote directly above would take
+     the header in as plain text, and a non-blank line directly below would
+     join the callout as a lazy continuation. `joinsBelow` says the line below
+     already belongs to the block, so it must stay attached. */
+  replaceLines(editor, a, b, lines, joinsBelow) {
+    const out = lines.slice();
+    if (a > 0 && QUOTE.test(editor.getLine(a - 1))) out.unshift('');
+    if (!joinsBelow && b < editor.lastLine() && editor.getLine(b + 1).trim()) out.push('');
+    editor.replaceRange(
+      out.join('\n'),
+      { line: a, ch: 0 },
+      { line: b, ch: editor.getLine(b).length }
+    );
+  }
+
   /* Wrap the selected lines (or the current line) in a gallery callout.
-     If the selection already touches an existing gallery callout, the new
-     lines are merged into it (just a "> " prefix) instead of being wrapped in
-     a second, nested "> [!gallery]" — see extendGallery below. */
+     If the selection overlaps or directly borders an existing gallery, the
+     lines are merged into it instead of getting a second "> [!gallery]" —
+     see extendGallery below. */
   wrapSelection(editor, type) {
-    const isQuote = (n) => /^\s*>/.test(editor.getLine(n));
-    const isGalleryHeader = (n) =>
-      /^\s*>\s*\[!gallery(-masonry)?\]/i.test(editor.getLine(n));
+    const { fromLine, toLine } = this.selectedLines(editor);
+    const last = editor.lastLine();
 
-    const hasSelection = editor.somethingSelected();
-    const fromLine = hasSelection ? editor.getCursor('from').line : editor.getCursor().line;
-    const toLine = hasSelection ? editor.getCursor('to').line : editor.getCursor().line;
-
-    // Does any selected line already belong to an existing gallery callout?
-    // (A quoted line whose contiguous blockquote block starts with a gallery
-    // header.) If so, extend that gallery rather than nesting a new one.
-    for (let n = fromLine; n <= toLine; n++) {
-      if (!isQuote(n)) continue;
-      let top = n;
-      while (top > 0 && isQuote(top - 1)) top--;
-      if (isGalleryHeader(top)) {
-        this.extendGallery(editor, fromLine, toLine);
+    for (let n = Math.max(fromLine - 1, 0); n <= Math.min(toLine + 1, last); n++) {
+      if (!QUOTE.test(editor.getLine(n))) continue;
+      const top = this.quoteTop(editor, n);
+      if (GALLERY_HEADER.test(editor.getLine(top))) {
+        this.extendGallery(editor, fromLine, toLine, top);
         return;
       }
+      n = this.quoteBottom(editor, n); // not a gallery; skip the rest of it
     }
 
-    // No gallery in range → create a fresh one.
-    const raw = hasSelection
-      ? editor.getSelection()
-      : editor.getLine(editor.getCursor().line);
-
-    const body = raw
-      .replace(/\r/g, '')
-      .split('\n')
-      .map((line) => (line.trim().length ? '> ' + line : '>'))
-      .join('\n');
-    const out = `> [!${type}]\n${body}\n`;
-
-    if (hasSelection) {
-      editor.replaceSelection(out);
-    } else {
-      const line = editor.getCursor().line;
-      editor.setLine(line, out.replace(/\n+$/, ''));
-    }
+    const lines = [`> [!${type}]`];
+    for (let n = fromLine; n <= toLine; n++) lines.push(quoteLine(editor.getLine(n)));
+    this.replaceLines(editor, fromLine, toLine, lines, false);
   }
 
-  /* Merge plain lines into an already-existing gallery: add "> " to the lines
-     that aren't quoted yet and leave the existing gallery lines untouched.
-     The gallery's type is kept as-is (defined by its existing header). */
-  extendGallery(editor, fromLine, toLine) {
-    const isQuote = (n) => /^\s*>/.test(editor.getLine(n));
-    const out = [];
-    for (let n = fromLine; n <= toLine; n++) {
+  /* Merge lines fromLine..toLine into the gallery whose header is on line
+     `top`. The header must stay the first line of the blockquote, or the
+     callout turns into a plain quote, so it moves above any lines selected
+     before it; everything else keeps its order. Plain lines get a "> "
+     prefix, and the headers of other galleries in the range are dropped, so
+     a selection spanning two galleries merges them. The type is kept. */
+  extendGallery(editor, fromLine, toLine, top) {
+    const a = Math.min(fromLine, top);
+    const b = Math.max(toLine, top);
+    const lines = [editor.getLine(top)];
+    for (let n = a; n <= b; n++) {
       const line = editor.getLine(n);
-      out.push(isQuote(n) ? line : line.trim().length ? '> ' + line : '>');
+      if (n === top || GALLERY_HEADER.test(line)) continue;
+      lines.push(QUOTE.test(line) ? line : quoteLine(line));
     }
-    editor.replaceRange(
-      out.join('\n'),
-      { line: fromLine, ch: 0 },
-      { line: toLine, ch: editor.getLine(toLine).length }
-    );
+    this.replaceLines(editor, a, b, lines, QUOTE.test(editor.getLine(b)));
   }
 
-  /* Remove gallery-callout wrapping: drops the [!gallery] header and strips
-     one level of "> " from each line. Uses the selection if present,
-     otherwise the contiguous blockquote block around the cursor. */
+  /* Unwrap every gallery callout that the selection (or the cursor's line)
+     touches: drop its header and strip one level of "> " from all its lines.
+     Other quotes and callouts are left alone. */
   unwrapSelection(editor) {
-    const isQuote = (n) => /^\s*>/.test(editor.getLine(n));
-    let fromLine, toLine;
-
-    if (editor.somethingSelected()) {
-      fromLine = editor.getCursor('from').line;
-      toLine = editor.getCursor('to').line;
-    } else {
-      const cur = editor.getCursor().line;
-      if (!isQuote(cur)) {
-        new obsidian.Notice('Metal Media Gallery: cursor is not inside a callout.');
-        return;
-      }
-      const last = editor.lastLine();
-      fromLine = cur;
-      toLine = cur;
-      while (fromLine > 0 && isQuote(fromLine - 1)) fromLine--;
-      while (toLine < last && isQuote(toLine + 1)) toLine++;
-    }
-
-    const out = [];
+    const { fromLine, toLine } = this.selectedLines(editor);
+    const blocks = [];
     for (let n = fromLine; n <= toLine; n++) {
-      const line = editor.getLine(n);
-      if (/^\s*>\s*\[!gallery(-masonry)?\]/i.test(line)) continue; // drop header
-      out.push(line.replace(/^(\s*)>\s?/, '$1'));                  // strip one "> "
+      if (!QUOTE.test(editor.getLine(n))) continue;
+      const top = this.quoteTop(editor, n);
+      const bottom = this.quoteBottom(editor, n);
+      if (GALLERY_HEADER.test(editor.getLine(top))) blocks.push({ top, bottom });
+      n = bottom;
+    }
+    if (!blocks.length) {
+      new obsidian.Notice('Metal Media Gallery: no gallery callout at the cursor.');
+      return;
     }
 
-    editor.replaceRange(
-      out.join('\n'),
-      { line: fromLine, ch: 0 },
-      { line: toLine, ch: editor.getLine(toLine).length }
-    );
+    // Bottom-up, so the line numbers of the blocks above stay valid.
+    for (const { top, bottom } of blocks.reverse()) {
+      const lines = [];
+      for (let n = top + 1; n <= bottom; n++) {
+        lines.push(editor.getLine(n).replace(/^(\s*)>\s?/, '$1'));
+      }
+      editor.replaceRange(
+        lines.join('\n'),
+        { line: top, ch: 0 },
+        { line: bottom, ch: editor.getLine(bottom).length }
+      );
+    }
   }
 
   /* Wire up one justified gallery: mark it, then (re)layout on load & resize.
