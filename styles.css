@@ -13,9 +13,6 @@
      light ones), which washes out the media. Show the pixels as they are. */
   --callout-blend-mode: normal;
   mix-blend-mode: normal;
-  /* Callouts clip their overflow; with the chrome gone nothing needs it, and
-     it would cut off the drop bar beside the first or last image of a row. */
-  overflow: visible;
 }
 .markdown-preview-view .callout[data-callout^="gallery"] > .callout-title {
   display: none;
@@ -89,18 +86,14 @@
 .markdown-preview-view .callout[data-callout^="gallery"] .mg-dragging {
   opacity: 0.4;
 }
-/* A bar in the gap on the side the dragged image will land. */
-.markdown-preview-view .callout[data-callout="gallery"] .mg-drop-before {
-  box-shadow: -4px 0 0 0 var(--interactive-accent);
-}
-.markdown-preview-view .callout[data-callout="gallery"] .mg-drop-after {
-  box-shadow: 4px 0 0 0 var(--interactive-accent);
-}
-.markdown-preview-view .callout[data-callout="gallery-masonry"] .mg-drop-before {
-  box-shadow: 0 -4px 0 0 var(--interactive-accent);
-}
-.markdown-preview-view .callout[data-callout="gallery-masonry"] .mg-drop-after {
-  box-shadow: 0 4px 0 0 var(--interactive-accent);
+/* The bar in the gap where the dragged image will land; positioned by JS
+   on <body>, so no ancestor of the gallery can clip it. */
+.mg-drop-bar {
+  position: fixed;
+  z-index: var(--layer-popover, 30);
+  pointer-events: none; /* keep it out of elementFromPoint */
+  border-radius: 2px;
+  background: var(--interactive-accent);
 }
 body.mg-reordering,
 body.mg-reordering * {

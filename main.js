@@ -518,9 +518,10 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     });
   }
 
-  /* Follow one drag from its pointerdown: dim the image, mark the drop
-     side on the image under the pointer, and move on release. Escape
-     cancels. A press without movement stays an ordinary click. */
+  /* Follow one drag from its pointerdown: dim the image, show a bar in the
+     gap on the side of the image under the pointer where it will land, and
+     move on release. Escape cancels. A press without movement stays an
+     ordinary click. */
   dragItem(down, item, content, sectionEl, ctx, vertical) {
     const doc = content.ownerDocument;
     const win = doc.defaultView || window;
@@ -528,11 +529,29 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     let target = null;
     let after = false;
 
+    // The bar is a fixed element on <body>, placed from the target's
+    // on-screen box: drawn inside the gallery, it was clipped by an ancestor
+    // at the edges of a row, exactly where a gap lies outside the gallery.
+    const bar = doc.createElement('div');
+    bar.className = 'mg-drop-bar';
+    const placeBar = () => {
+      bar.hidden = !target;
+      if (!target) return;
+      const b = target.getBoundingClientRect();
+      const half = this.settings.gap / 2;
+      const t = 4; // thickness
+      if (vertical) {
+        const y = after ? b.bottom + half : b.top - half;
+        Object.assign(bar.style, { left: b.left + 'px', width: b.width + 'px', top: y - t / 2 + 'px', height: t + 'px' });
+      } else {
+        const x = after ? b.right + half : b.left - half;
+        Object.assign(bar.style, { left: x - t / 2 + 'px', width: t + 'px', top: b.top + 'px', height: b.height + 'px' });
+      }
+    };
     const setTarget = (el, isAfter) => {
-      if (target) target.classList.remove('mg-drop-before', 'mg-drop-after');
       target = el;
       after = isAfter;
-      if (el) el.classList.add(isAfter ? 'mg-drop-after' : 'mg-drop-before');
+      placeBar();
     };
 
     const onMove = (e) => {
@@ -541,6 +560,8 @@ class MediaGalleryPlugin extends obsidian.Plugin {
         active = true;
         item.classList.add('mg-dragging');
         doc.body.classList.add('mg-reordering');
+        doc.body.appendChild(bar);
+        win.addEventListener('scroll', placeBar, true); // the target moves under a still pointer
       }
       const r = content.getBoundingClientRect();
       if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) {
@@ -560,9 +581,10 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       win.removeEventListener('pointerup', onUp, true);
       win.removeEventListener('pointercancel', onCancel, true);
       win.removeEventListener('keydown', onKey, true);
+      win.removeEventListener('scroll', placeBar, true);
       const dropOn = target;
       const dropAfter = after;
-      setTarget(null);
+      bar.remove();
       item.classList.remove('mg-dragging');
       doc.body.classList.remove('mg-reordering');
       if (!active) return;

@@ -110,8 +110,10 @@ same actions to the right-click menu, picked by whether the cursor is inside a g
 ### Drag reordering (reading view)
 
 `setupReorder` listens for Ctrl/Cmd + pointerdown on a gallery's media; `dragItem` follows the
-drag with window-level capture listeners (classes `mg-dragging` / `mg-drop-before|after` /
-body `mg-reordering` drive the visuals), and the drop calls `moveItem`. That rewrites the note
+drag with window-level capture listeners (class `mg-dragging` on the image, body
+`mg-reordering`, and an `.mg-drop-bar` — a `position: fixed` element on `<body>` placed from the
+target's on-screen box, because anything drawn inside the gallery gets clipped at the row
+edges by an ancestor), and the drop calls `moveItem`. That rewrites the note
 through `Vault.process` (read/modify fallback before 1.1): it re-reads the section via
 `ctx.getSectionInfo(sectionEl)` — so the post processor's `el` is passed down to the setup
 functions — checks the file still matches what was rendered, matches DOM items to the gallery
