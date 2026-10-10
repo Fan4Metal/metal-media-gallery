@@ -77,6 +77,8 @@ Open the command palette (`Ctrl/Cmd+P`) and run one, or assign a hotkey in **Set
 
 There is also a **ribbon button** (left sidebar, grid icon): select your image lines, click it, and pick *Justified*, *Masonry*, *Row separator*, or *Remove gallery*. Toggle it off in **Settings → Metal Media Gallery → Ribbon button**.
 
+The same actions are in the editor's **right-click menu**: *Wrap in gallery* / *Wrap in masonry gallery* outside a gallery, *Insert row separator* / *Remove gallery* inside one. Toggle them off in **Settings → Metal Media Gallery → Editor context menu**.
+
 ## Settings
 
 Open **Settings → Metal Media Gallery**:

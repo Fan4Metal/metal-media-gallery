@@ -77,6 +77,8 @@
 
 Есть также **кнопка на ленте** (левая панель, иконка сетки): после выделения строк с картинками нажатие кнопки предлагает выбор *Justified*, *Masonry*, *Row separator* или *Remove gallery*. Скрыть кнопку можно в **Settings → Metal Media Gallery → Ribbon button**.
 
+Те же действия есть в **контекстном меню редактора** (правая кнопка мыши): вне галереи — *Wrap in gallery* / *Wrap in masonry gallery*, внутри неё — *Insert row separator* / *Remove gallery*. Отключить их можно в **Settings → Metal Media Gallery → Editor context menu**.
+
 ## Настройки
 
 Настройки расположены в **Settings → Metal Media Gallery**:

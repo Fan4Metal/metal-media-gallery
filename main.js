@@ -55,6 +55,7 @@ const DEFAULT_SETTINGS = {
   radius: 6,        // corner radius (px)
   width: 140,       // gallery width relative to text column (%)
   showRibbon: true, // show the wrap button in the left ribbon
+  showEditorMenu: true, // show the gallery actions in the editor's right-click menu
 };
 
 class MediaGalleryPlugin extends obsidian.Plugin {
@@ -101,6 +102,31 @@ class MediaGalleryPlugin extends obsidian.Plugin {
 
     this.ribbonEl = null;
     this.applyRibbon();
+
+    // Right-click menu: wrap actions outside a gallery, gallery actions inside.
+    this.registerEvent(
+      this.app.workspace.on('editor-menu', (menu, editor) => {
+        if (!this.settings.showEditorMenu) return;
+        const inGallery = this.galleryTop(editor, this.selectedLines(editor).fromLine) >= 0;
+        menu.addSeparator();
+        if (inGallery) {
+          menu.addItem((i) =>
+            i.setTitle('Insert row separator (***)').setIcon('minus').onClick(() => this.insertSeparator(editor))
+          );
+          menu.addItem((i) =>
+            i.setTitle('Remove gallery').setIcon('x').onClick(() => this.unwrapSelection(editor))
+          );
+        } else {
+          menu.addItem((i) =>
+            i.setTitle('Wrap in gallery').setIcon('layout-grid').onClick(() => this.wrapSelection(editor, 'gallery'))
+          );
+          menu.addItem((i) =>
+            i.setTitle('Wrap in masonry gallery').setIcon('align-start-vertical')
+              .onClick(() => this.wrapSelection(editor, 'gallery-masonry'))
+          );
+        }
+      })
+    );
 
     this.registerMarkdownPostProcessor((el, ctx) => {
       const find = (sel) => (el.matches(sel) ? [el] : Array.from(el.querySelectorAll(sel)));
@@ -254,6 +280,13 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     return n;
   }
 
+  /* Header line of the gallery callout that contains line n, or -1. */
+  galleryTop(editor, n) {
+    if (!QUOTE.test(editor.getLine(n))) return -1;
+    const top = this.quoteTop(editor, n);
+    return GALLERY_HEADER.test(editor.getLine(top)) ? top : -1;
+  }
+
   /* Replace lines a..b with `lines`, adding blank lines where a neighbour
      would otherwise run into the callout: a quote directly above would take
      the header in as plain text, and a non-blank line directly below would
@@ -351,9 +384,8 @@ class MediaGalleryPlugin extends obsidian.Plugin {
      row); none is added where a separator or the header already is. */
   insertSeparator(editor) {
     const { fromLine, toLine } = this.selectedLines(editor);
-    const inQuote = QUOTE.test(editor.getLine(fromLine));
-    const top = inQuote ? this.quoteTop(editor, fromLine) : -1;
-    if (!inQuote || !GALLERY_HEADER.test(editor.getLine(top)) || this.quoteBottom(editor, fromLine) < toLine) {
+    const top = this.galleryTop(editor, fromLine);
+    if (top < 0 || this.quoteBottom(editor, fromLine) < toLine) {
       new obsidian.Notice('Metal Media Gallery: put the cursor or selection inside a gallery callout.');
       return;
     }
@@ -701,6 +733,16 @@ class MediaGallerySettingTab extends obsidian.PluginSettingTab {
           this.plugin.settings.showRibbon = v;
           await this.plugin.saveSettings();
           this.plugin.applyRibbon();
+        })
+      );
+
+    new obsidian.Setting(containerEl)
+      .setName('Editor context menu')
+      .setDesc('Show the gallery actions in the editor right-click menu.')
+      .addToggle((tg) =>
+        tg.setValue(this.plugin.settings.showEditorMenu).onChange(async (v) => {
+          this.plugin.settings.showEditorMenu = v;
+          await this.plugin.saveSettings();
         })
       );
 
