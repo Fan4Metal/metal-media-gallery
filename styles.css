@@ -47,6 +47,11 @@
 .markdown-preview-view .callout[data-callout^="gallery"] .callout-content br {
   display: none;
 }
+/* A *** line closes a group of images in [!gallery] (the JS reads it from
+   the DOM); masonry ignores it. Either way the line itself isn't shown. */
+.markdown-preview-view .callout[data-callout^="gallery"] .callout-content hr {
+  display: none;
+}
 .markdown-preview-view .callout[data-callout^="gallery"] img,
 .markdown-preview-view .callout[data-callout^="gallery"] video {
   cursor: zoom-in; /* hint the image-viewer lightbox */

@@ -96,3 +96,40 @@ test('a leading panorama is also its own row', () => {
   assert.deepEqual([rows[0].start, rows[0].end, rows[0].full], [0, 1, true]);
   assert.ok(Math.abs(rows[0].height - W / 10) < 1e-9);
 });
+
+/* Groups closed by a *** separator (closed = true). */
+
+test('a closed group of two portraits is one full-width row', () => {
+  const rows = packRows([0.67, 0.67], W, GAP, H, true);
+  assert.equal(rows.length, 1);
+  assert.deepEqual([rows[0].start, rows[0].end, rows[0].full], [0, 2, true]);
+  assert.ok(Math.abs(rowWidth([0.67, 0.67], rows[0]) - W) < 1e-6);
+});
+
+test('a closed group does not leave its last image alone', () => {
+  // Greedy packing would close 1.5 × 3 at ≈219px and leave the fourth as a
+  // 667px full-width orphan; one row of four at ≈163px is far closer.
+  const rows = packRows([1.5, 1.5, 1.5, 1.5], W, GAP, H, true);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].end, 4);
+});
+
+test('a single image in a closed group fills the width', () => {
+  const rows = packRows([1.5], W, GAP, H, true);
+  assert.deepEqual([rows[0].start, rows[0].end, rows[0].full], [0, 1, true]);
+  assert.ok(Math.abs(rows[0].height - W / 1.5) < 1e-9);
+});
+
+test('a long closed group splits into full rows near the target', () => {
+  const ars = Array.from({ length: 30 }, (_, i) => [1.5, 0.67, 1.78, 1][i % 4]);
+  const rows = packRows(ars, W, GAP, H, true);
+  let next = 0;
+  for (const r of rows) {
+    assert.equal(r.start, next);
+    assert.ok(r.full);
+    assert.ok(Math.abs(rowWidth(ars, r) - W) < 1e-6, `row ${r.start}-${r.end} fills the width`);
+    assert.ok(r.height > 0.6 * H && r.height < 1.6 * H, `height ${r.height.toFixed(1)} is near ${H}`);
+    next = r.end;
+  }
+  assert.equal(next, ars.length);
+});

@@ -38,6 +38,24 @@ Masonry variant:
 > ![[photo-3.png]]
 ```
 
+### Keeping images on one row
+
+In `[!gallery]`, a `***` line ends a group of images: the group is packed on its own and ends with a row that fills the full width, and the images after the line start a new row. Put `***` before and after a few images to show them side by side in one row:
+
+```markdown
+> [!gallery]
+> ![[photo-1.png]]
+> ![[photo-2.png]]
+> ![[photo-3.png]]
+> ***
+> ![[portrait-1.png]]
+> ![[portrait-2.png]]
+> ***
+> ![[photo-4.png]]
+```
+
+A short group (two to four images) becomes a single row; a longer one is split into several full rows. A full-width row of portraits can get tall — **Max row height** caps it. Use `***`, not `---`: right under an image line, `---` turns that line into a heading. Masonry galleries ignore the separator.
+
 > **Tip:** for a single image, just embed it normally (outside a callout) — galleries are for groups.
 
 ### Quick-wrap command
@@ -63,6 +81,7 @@ Open **Settings → Metal Media Gallery**:
 | Setting | What it does | Default |
 | --- | --- | --- |
 | Row height (justified) | Target row height for `[!gallery]` | 220 px |
+| Max row height (justified) | Caps full rows, such as a group closed by `***`; a capped row no longer fills the width. 0 = no limit | 0 |
 | Columns (masonry) | Maximum column count for `[!gallery-masonry]` | 3 |
 | Min column width (masonry) | Narrow panes and phones use fewer columns so each stays at least this wide | 180 px |
 | Gap | Space between items | 7 px |
@@ -71,7 +90,7 @@ Open **Settings → Metal Media Gallery**:
 
 ## How the justified layout works
 
-Images are grouped into rows: items are added until the next one would overflow the container at the target height. That item is then either squeezed into the row or starts the next one, whichever leaves the row height closer to the target. Each full row is scaled so its widths — each proportional to the image's aspect ratio — fill the row exactly. Because width equals `aspectRatio × height`, every image keeps its true proportions: no cropping. The last, incomplete row keeps the target height and is left-aligned. Aspect ratios are remembered per image, so a note you return to lays out correctly before its images have reloaded.
+Images are grouped into rows: items are added until the next one would overflow the container at the target height. That item is then either squeezed into the row or starts the next one, whichever leaves the row height closer to the target. Each full row is scaled so its widths — each proportional to the image's aspect ratio — fill the row exactly. Because width equals `aspectRatio × height`, every image keeps its true proportions: no cropping. The last, incomplete row keeps the target height and is left-aligned. A `***` line splits the images into groups packed separately; a group it closes has no incomplete row — its rows are chosen together so that all of them, the last included, fill the width with heights as close to the target as possible. Aspect ratios are remembered per image, so a note you return to lays out correctly before its images have reloaded.
 
 ## Requirements
 

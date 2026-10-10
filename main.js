@@ -47,6 +47,7 @@ function decodeAsync(content) {
 
 const DEFAULT_SETTINGS = {
   rowHeight: 220,   // [!gallery] target row height (px)
+  maxRowHeight: 0,  // [!gallery] height cap for full rows, e.g. a group closed by *** (px; 0 = none)
   columns: 3,       // [!gallery-masonry] column count (maximum)
   columnWidth: 180, // [!gallery-masonry] minimum column width (px); narrow panes drop columns
   gap: 7,           // gap between items (px)
@@ -155,6 +156,7 @@ class MediaGalleryPlugin extends obsidian.Plugin {
         content.querySelectorAll('img, video').forEach((el) => {
           el.style.removeProperty('width');
           el.style.removeProperty('height');
+          el.style.removeProperty('margin-right');
           el.classList.remove('mg-broken');
         });
       });
@@ -456,13 +458,24 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     // doesn't apply; sizing the images there would only shrink them in place.
     if (!content.closest('.markdown-preview-view')) return;
 
-    // An image that finished loading with no pixels is broken; keep its
-    // placeholder icon out of the rows instead of giving it a 3:2 slot.
-    const items = Array.from(content.querySelectorAll('img, video')).filter((el) => {
+    // *** separators (<hr>) split the items into groups, each packed on its
+    // own; a group that a separator closes ends with a full row.
+    const items = [];
+    const groups = [];
+    let groupStart = 0;
+    const closeGroup = (closed) => {
+      if (items.length > groupStart) groups.push({ start: groupStart, end: items.length, closed });
+      groupStart = items.length;
+    };
+    content.querySelectorAll('img, video, hr').forEach((el) => {
+      if (el.tagName === 'HR') return closeGroup(true);
+      // An image that finished loading with no pixels is broken; keep its
+      // placeholder icon out of the rows instead of giving it a 3:2 slot.
       const broken = el.tagName === 'IMG' && el.complete && !el.naturalWidth;
       el.classList.toggle('mg-broken', broken);
-      return !broken;
+      if (!broken) items.push(el);
     });
+    closeGroup(false);
     if (!items.length) return;
 
     // Fractional, not clientWidth: that is rounded, and rounding up by half
@@ -472,6 +485,7 @@ class MediaGalleryPlugin extends obsidian.Plugin {
 
     const gap = this.settings.gap;
     const targetH = this.settings.rowHeight;
+    const maxH = this.settings.maxRowHeight || Infinity; // 0 = no limit
 
     // Aspect ratio (w/h) for each item: measured once loaded, remembered by
     // URL for next time, and 3:2 as a placeholder until either is available.
@@ -485,27 +499,47 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       return (src && this.arCache.get(src)) || 3 / 2;
     });
 
-    for (const { start, end, height, full } of packRows(ars, width, gap, targetH)) {
-      // Widths are snapped down to the 1/64 px grid Chromium lays out on, so
-      // a row's sum never exceeds the container and nothing wraps. In a full
-      // row the last item takes the remainder, so the row ends flush.
-      let used = 0;
-      for (let i = start; i < end; i++) {
-        const w = full && i === end - 1
-          ? width - (end - start - 1) * gap - used
-          : ars[i] * height;
-        const snapped = Math.floor(w * 64) / 64;
-        used += snapped;
-        const el = items[i];
-        usedAr.set(el, ars[i]);
-        // Only touch elements whose size actually changed, so a late image
-        // load doesn't invalidate the style of every row above it.
-        const size = height.toFixed(2) + 'px ' + snapped + 'px';
-        if (written.get(el) !== size) {
-          written.set(el, size);
-          el.style.height = height.toFixed(2) + 'px';
-          el.style.width = snapped + 'px';
-        }
+    for (const g of groups) {
+      const rows = packRows(ars.slice(g.start, g.end), width, gap, targetH, g.closed);
+      for (const row of rows) {
+        // A full row taller than the limit is shrunk to it, so it no longer
+        // fills the width; the margin after its last item then pads it to
+        // the full width, so the next group still starts on a new line.
+        const capped = row.full && row.height > maxH;
+        const start = g.start + row.start;
+        const end = g.start + row.end;
+        if (capped) this.sizeRow(items, ars, start, end, maxH, false, true, width, gap);
+        else this.sizeRow(items, ars, start, end, row.height, row.full, false, width, gap);
+      }
+    }
+  }
+
+  /* Write the sizes of items start..end-1, one row of `height`. Widths are
+     snapped down to the 1/64 px grid Chromium lays out on, so a row's sum
+     never exceeds the container and nothing wraps. In a full row the last
+     item takes the remainder, so the row ends flush; in a padded row its
+     right margin does. */
+  sizeRow(items, ars, start, end, height, full, padded, width, gap) {
+    let used = 0;
+    for (let i = start; i < end; i++) {
+      const last = i === end - 1;
+      const w = full && last ? width - (end - start - 1) * gap - used : ars[i] * height;
+      const snapped = Math.floor(w * 64) / 64;
+      used += snapped;
+      const margin = padded && last
+        ? Math.max(0, Math.floor((width - (end - start - 1) * gap - used) * 64) / 64)
+        : 0;
+      const el = items[i];
+      usedAr.set(el, ars[i]);
+      // Only touch elements whose size actually changed, so a late image
+      // load doesn't invalidate the style of every row above it.
+      const size = height.toFixed(2) + 'px ' + snapped + 'px ' + margin + 'px';
+      if (written.get(el) !== size) {
+        written.set(el, size);
+        el.style.height = height.toFixed(2) + 'px';
+        el.style.width = snapped + 'px';
+        if (margin) el.style.marginRight = margin + 'px';
+        else el.style.removeProperty('margin-right');
       }
     }
   }
@@ -516,8 +550,10 @@ class MediaGalleryPlugin extends obsidian.Plugin {
    full } (end exclusive). A full row's height is chosen so its items' widths
    (ar × height) plus gaps fill the width exactly; the last, incomplete row
    (full: false) keeps the target height. Nothing is stretched, so nothing is
-   cropped. */
-function packRows(ars, width, gap, targetH) {
+   cropped. A `closed` group (one followed by a *** separator) has no
+   incomplete row: see packClosed. */
+function packRows(ars, width, gap, targetH, closed = false) {
+  if (closed) return packClosed(ars, width, gap, targetH);
   const rows = [];
   let start = 0;   // first item of the row being built
   let arSum = 0;   // sum of its aspect ratios so far
@@ -554,6 +590,39 @@ function packRows(ars, width, gap, targetH) {
     }
   }
   if (start < ars.length) rows.push({ start, end: ars.length, height: targetH, full: false });
+  return rows;
+}
+
+/* Packing for a group that a *** separator closes: every row is full, the
+   last one included, so a short group becomes a single full-width row. Rows
+   are chosen over the whole group (minimising the summed squared log ratio
+   of each row's height to the target) rather than greedily, which would
+   often leave the group's last image alone in a huge full-width row. */
+function packClosed(ars, width, gap, targetH) {
+  const n = ars.length;
+  const cost = [0];  // cost[j]: best cost of packing items 0..j-1
+  const from = [0];  // from[j]: where the last row of that packing starts
+  for (let j = 1; j <= n; j++) {
+    cost[j] = Infinity;
+    let arSum = 0;
+    for (let i = j - 1; i >= 0; i--) { // row i..j-1; taller rows first
+      arSum += ars[i];
+      const h = (width - (j - i - 1) * gap) / arSum;
+      if (h <= 0) break;
+      const c = cost[i] + Math.log(h / targetH) ** 2;
+      if (c < cost[j]) {
+        cost[j] = c;
+        from[j] = i;
+      }
+      if (h < targetH / 4) break; // longer rows only get shorter
+    }
+  }
+  const rows = [];
+  for (let j = n; j > 0; j = from[j]) {
+    const i = from[j];
+    const height = (width - (j - i - 1) * gap) / ars.slice(i, j).reduce((a, b) => a + b, 0);
+    rows.unshift({ start: i, end: j, height, full: true });
+  }
   return rows;
 }
 
@@ -595,6 +664,7 @@ class MediaGallerySettingTab extends obsidian.PluginSettingTab {
       );
 
     slider('Row height (justified)', 'Target row height for [!gallery], in px.', 'rowHeight', 80, 500, 10);
+    slider('Max row height (justified)', 'A group of images closed by a *** line ends with a full-width row, which can get very tall. Taller rows are shrunk to this height and no longer fill the width, in px. 0 = no limit.', 'maxRowHeight', 0, 1500, 50);
     slider('Columns (masonry)', 'Maximum number of columns for [!gallery-masonry].', 'columns', 1, 6, 1);
     slider('Min column width (masonry)', 'Narrow panes use fewer columns so each stays at least this wide, in px.', 'columnWidth', 80, 400, 10);
     slider('Gap', 'Gap between items, in px.', 'gap', 0, 60, 1);

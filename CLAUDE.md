@@ -76,6 +76,12 @@ The justified pipeline (`main.js`):
    the target height. Widths are snapped down to 1/64 px (Chromium's layout grid) and the last
    item of a full row takes the remainder, so rows end flush and never wrap. Because width
    always equals `ar × height`, nothing is stretched or cropped.
+4. A `> ***` line (`<hr>`, hidden by CSS) splits the items into groups that `layout` packs
+   separately. A group closed by one has no incomplete row: `packRows(…, closed = true)` hands it
+   to `packClosed`, a DP that picks the row breaks minimising Σ log²(height / target) with every
+   row full. A full row taller than `maxRowHeight` (0 = no cap) is shrunk to it, and its last
+   item's `margin-right` pads it to the width so the next group still starts a new line.
+   (`---` can't be the separator: under a paragraph line it makes a setext heading.)
 
 `styles.css` strips the callout chrome, flattens Obsidian's `<p>`/`<div>` wrappers with
 `display: contents` (so each `img`/`video` is a direct flex/column child), and breaks the
@@ -85,7 +91,7 @@ gallery out wider than the text column via `--mg-width` (requires *Readable line
 
 Settings live in one `DEFAULT_SETTINGS` object, persisted via `loadData`/`saveData`. Most
 settings (gap, radius, columns, column width, width) are pushed to `--mg-*` CSS custom properties on
-`document.body` by `applyCssVars`; the CSS reads them with fallbacks. Only `rowHeight` and `gap`
+`document.body` by `applyCssVars`; the CSS reads them with fallbacks. Only `rowHeight`, `maxRowHeight` and `gap`
 also feed the JS `layout` directly. `saveSettings` re-applies the vars **and** re-runs `layout`
 on every visible justified gallery so changes appear live. When adding a setting, update
 `DEFAULT_SETTINGS`, `applyCssVars` (if CSS-driven), the settings tab in
