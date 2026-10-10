@@ -6,10 +6,6 @@
 # ./dev_vault is a local, git-ignored test vault — it is NOT part of the repo.
 # Create it yourself (any Obsidian vault works) or pass -Vault to point
 # elsewhere. The script throws if the target has no .obsidian folder.
-#
-# Note: galleries are now handled by the plugin in the repo root. The old CSS
-# snippets (media-*.css) are superseded — disable them in Obsidian
-# (Settings -> Appearance -> CSS snippets). This script no longer deploys them.
 
 param(
     [string]$Vault = (Join-Path $PSScriptRoot 'dev_vault'),
