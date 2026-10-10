@@ -15,6 +15,7 @@ An Obsidian plugin that turns callouts into image galleries in reading view — 
 - **No cropping.** Portrait and landscape mix freely.
 - **Reflows** on pane resize and as images load.
 - **Wider than the text column** — the gallery breaks out beyond the readable line width (configurable).
+- **Drag to reorder** — Ctrl/Cmd + drag an image in reading view to move it; the note's text is updated.
 - **Lightbox-friendly** — pairs with the [Metal Image Viewer](https://github.com/Fan4Metal/metal-image-viewer) plugin for click-to-zoom.
 
 ## Usage
@@ -57,6 +58,12 @@ In `[!gallery]`, a `***` line ends a group of images: the group is packed on its
 A short group (two to four images) becomes a single row; a longer one is split into several full rows. A full-width row of portraits can get tall — **Max row height** caps it. Use `***`, not `---`: right under an image line, `---` turns that line into a heading. Masonry galleries ignore the separator.
 
 The **Insert row separator** command (also in the ribbon menu) adds `> ***` after the cursor's line (or turns the cursor's empty `>` line into it); with lines selected inside a gallery, it puts a separator before and after them, so the selection becomes a row of its own.
+
+### Reordering images
+
+In reading view, hold **Ctrl** (**Cmd** on macOS) and drag an image to another place in the same gallery — handy for grouping similar shots. A bar shows where it will land: left or right of the image under the pointer (above or below it in a masonry gallery, whose order runs down the columns). On release the embed is moved in the note's text and the gallery redraws; **Esc** cancels the drag. An image alone on its line moves with its line; one that shares a line with others moves inline. Without Ctrl, clicks work as usual.
+
+If the gallery can't be matched to the note's text — the note changed in the meantime, or the gallery shows images from an embedded note — nothing is changed and a notice explains why.
 
 > **Tip:** for a single image, just embed it normally (outside a callout) — galleries are for groups.
 

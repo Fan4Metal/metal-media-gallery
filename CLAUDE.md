@@ -23,8 +23,8 @@ reads `manifest.json` from the repository root to publish and update the plugin.
 
 ## Deploy / test loop
 
-Rendering is verified by hand in Obsidian. The one pure piece, the row-packing function
-`packRows`, has a `node:test` suite (no dependencies; `main.js` is loaded with a stubbed
+Rendering is verified by hand in Obsidian. The pure pieces — the row-packing function
+`packRows` and `moveEmbed`, the source rewrite behind drag reordering — have a `node:test` suite (no dependencies; `main.js` is loaded with a stubbed
 `obsidian` module):
 
 ```powershell
@@ -106,6 +106,17 @@ gallery rendering only happens in reading view. `withActiveEditor` bridges the r
 (which has no editor context) to the active `MarkdownView`. The `editor-menu` handler adds the
 same actions to the right-click menu, picked by whether the cursor is inside a gallery
 (`galleryTop`).
+
+### Drag reordering (reading view)
+
+`setupReorder` listens for Ctrl/Cmd + pointerdown on a gallery's media; `dragItem` follows the
+drag with window-level capture listeners (classes `mg-dragging` / `mg-drop-before|after` /
+body `mg-reordering` drive the visuals), and the drop calls `moveItem`. That rewrites the note
+through `Vault.process` (read/modify fallback before 1.1): it re-reads the section via
+`ctx.getSectionInfo(sectionEl)` — so the post processor's `el` is passed down to the setup
+functions — checks the file still matches what was rendered, matches DOM items to the gallery
+block's embeds by order (and by link for internal embeds), and applies `moveEmbed`. Any
+mismatch leaves the file untouched and shows a notice.
 
 ## Manifest / release
 

@@ -40,6 +40,46 @@ function quoteLine(line) {
   return line.trim().length ? '> ' + line : '>';
 }
 
+/* Embeds (![[…]] and ![…](…)) in the given lines, in order, as
+   { line, start, end, text }. */
+function findEmbeds(lines) {
+  const embeds = [];
+  lines.forEach((text, line) => {
+    for (const m of text.matchAll(/!\[\[[^\]]*\]\]|!\[[^\]]*\]\([^)]*\)/g)) {
+      embeds.push({ line, start: m.index, end: m.index + m[0].length, text: m[0] });
+    }
+  });
+  return embeds;
+}
+
+/* Move embed number `from` to just before (or `after`) embed number `to`,
+   in the lines of a gallery callout. An embed alone on its line takes the
+   line along; next to an embed that shares its line, it goes inline,
+   separated by a space. Returns the new lines, or null if the embed is
+   already there. */
+function moveEmbed(lines, from, to, after) {
+  const slot = after ? to + 1 : to; // insertion point in the original order
+  if (slot === from || slot === from + 1) return null;
+
+  const out = lines.slice();
+  const src = findEmbeds(out)[from];
+  const head = out[src.line].slice(0, src.start);
+  const tail = out[src.line].slice(src.end);
+  if (EMPTY_QUOTE.test(head + tail)) out.splice(src.line, 1);
+  else out[src.line] = head.replace(/\s+$/, '') + (tail.trim() ? ' ' + tail.replace(/^\s+/, '') : '');
+
+  const dst = findEmbeds(out)[to > from ? to - 1 : to];
+  const line = out[dst.line];
+  if (EMPTY_QUOTE.test(line.slice(0, dst.start) + line.slice(dst.end))) {
+    out.splice(after ? dst.line + 1 : dst.line, 0, line.slice(0, dst.start) + src.text);
+  } else if (after) {
+    out[dst.line] = line.slice(0, dst.end) + ' ' + src.text + line.slice(dst.end);
+  } else {
+    out[dst.line] = line.slice(0, dst.start) + src.text + ' ' + line.slice(dst.start);
+  }
+  return out;
+}
+
 /* Decode a gallery's images off the main thread: a row of camera-sized
    photos scrolling into view otherwise stalls the frame while each one is
    decoded. */
@@ -139,9 +179,9 @@ class MediaGalleryPlugin extends obsidian.Plugin {
 
     this.registerMarkdownPostProcessor((el, ctx) => {
       const find = (sel) => (el.matches(sel) ? [el] : Array.from(el.querySelectorAll(sel)));
-      find('.callout[data-callout="gallery"]').forEach((c) => this.setupJustified(c, ctx));
-      // Masonry is laid out by CSS; it only shares the async decoding.
-      find('.callout[data-callout="gallery-masonry"]').forEach((c) => this.setupMasonry(c, ctx));
+      find('.callout[data-callout="gallery"]').forEach((c) => this.setupJustified(c, ctx, el));
+      // Masonry is laid out by CSS; it only shares async decoding and reordering.
+      find('.callout[data-callout="gallery-masonry"]').forEach((c) => this.setupMasonry(c, ctx, el));
     });
   }
 
@@ -455,6 +495,169 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     }
   }
 
+  /* Ctrl/Cmd + drag moves an image within a gallery in reading view: the
+     drop rewrites the order of the embeds in the note, and Obsidian then
+     re-renders the gallery. `vertical` galleries (masonry, whose order runs
+     down the columns) drop above/below an image instead of left/right. */
+  setupReorder(child, content, sectionEl, ctx, vertical) {
+    const onDown = (e) => {
+      if (e.button !== 0 || !(e.ctrlKey || e.metaKey)) return;
+      const item = e.target.closest && e.target.closest('img, video');
+      if (!item || !content.contains(item) || !content.closest('.markdown-preview-view')) return;
+      e.preventDefault(); // no text selection or native image drag
+      this.dragItem(e, item, content, sectionEl, ctx, vertical);
+    };
+    const onDragStart = (e) => {
+      if (e.ctrlKey || e.metaKey) e.preventDefault();
+    };
+    content.addEventListener('pointerdown', onDown);
+    content.addEventListener('dragstart', onDragStart);
+    child.register(() => {
+      content.removeEventListener('pointerdown', onDown);
+      content.removeEventListener('dragstart', onDragStart);
+    });
+  }
+
+  /* Follow one drag from its pointerdown: dim the image, mark the drop
+     side on the image under the pointer, and move on release. Escape
+     cancels. A press without movement stays an ordinary click. */
+  dragItem(down, item, content, sectionEl, ctx, vertical) {
+    const doc = content.ownerDocument;
+    const win = doc.defaultView || window;
+    let active = false;
+    let target = null;
+    let after = false;
+
+    const setTarget = (el, isAfter) => {
+      if (target) target.classList.remove('mg-drop-before', 'mg-drop-after');
+      target = el;
+      after = isAfter;
+      if (el) el.classList.add(isAfter ? 'mg-drop-after' : 'mg-drop-before');
+    };
+
+    const onMove = (e) => {
+      if (!active) {
+        if (Math.hypot(e.clientX - down.clientX, e.clientY - down.clientY) < 5) return;
+        active = true;
+        item.classList.add('mg-dragging');
+        doc.body.classList.add('mg-reordering');
+      }
+      const r = content.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) {
+        setTarget(null);
+        return;
+      }
+      const over = doc.elementFromPoint(e.clientX, e.clientY);
+      const el = over && over.closest('img, video');
+      if (!el || !content.contains(el)) return; // in a gap: keep the last target
+      const b = el.getBoundingClientRect();
+      const isAfter = vertical ? e.clientY > b.top + b.height / 2 : e.clientX > b.left + b.width / 2;
+      setTarget(el === item ? null : el, isAfter);
+    };
+
+    const finish = (drop) => {
+      win.removeEventListener('pointermove', onMove, true);
+      win.removeEventListener('pointerup', onUp, true);
+      win.removeEventListener('pointercancel', onCancel, true);
+      win.removeEventListener('keydown', onKey, true);
+      const dropOn = target;
+      const dropAfter = after;
+      setTarget(null);
+      item.classList.remove('mg-dragging');
+      doc.body.classList.remove('mg-reordering');
+      if (!active) return;
+      // The release still fires a click; keep it from opening a lightbox or
+      // following a link. It is dispatched before any timer runs.
+      const swallow = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+      win.addEventListener('click', swallow, true);
+      win.setTimeout(() => win.removeEventListener('click', swallow, true), 0);
+      if (drop && dropOn) this.moveItem(content, sectionEl, ctx, item, dropOn, dropAfter);
+    };
+    const onUp = () => finish(true);
+    const onCancel = () => finish(false);
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      finish(false);
+    };
+
+    win.addEventListener('pointermove', onMove, true);
+    win.addEventListener('pointerup', onUp, true);
+    win.addEventListener('pointercancel', onCancel, true);
+    win.addEventListener('keydown', onKey, true);
+  }
+
+  /* Move `item` before (or after) `target` in the note's source. The DOM
+     items are matched to the embeds of the gallery block by order (checking
+     the link of internal embeds); anything that doesn't line up — the note
+     changed since it was rendered, an embedded note adds images, the
+     gallery is nested — leaves the note untouched, with a notice. */
+  async moveItem(content, sectionEl, ctx, item, target, after) {
+    const items = Array.from(content.querySelectorAll('img, video'));
+    const from = items.indexOf(item);
+    const to = items.indexOf(target);
+    if (from < 0 || to < 0) return;
+
+    const info = ctx.getSectionInfo(sectionEl);
+    const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+    if (!info || !(file instanceof obsidian.TFile)) {
+      new obsidian.Notice("Metal Media Gallery: images can only be reordered in the note's own reading view.");
+      return;
+    }
+    const linkOf = (s) => s.split('|')[0].trim();
+    const links = items.map((el) => {
+      const embed = el.closest('.internal-embed');
+      return embed && embed.getAttribute('src') ? linkOf(embed.getAttribute('src')) : null;
+    });
+
+    let error = null;
+    await this.processFile(file, (data) => {
+      const eol = data.includes('\r\n') ? '\r\n' : '\n';
+      const lines = data.split(/\r?\n/);
+      // info.text is in practice the whole note, but is documented as the
+      // section's text; accept either.
+      const rendered = info.text.split(/\r?\n/);
+      const offset = rendered.length === info.lineEnd - info.lineStart + 1 ? info.lineStart : 0;
+      for (let n = info.lineStart; n <= info.lineEnd; n++) {
+        if (lines[n] !== rendered[n - offset]) {
+          error = 'the note has changed, try again.';
+          return data;
+        }
+      }
+      let top = info.lineStart;
+      while (top <= info.lineEnd && !GALLERY_HEADER.test(lines[top])) top++;
+      let bottom = top;
+      while (bottom < info.lineEnd && QUOTE.test(lines[bottom + 1])) bottom++;
+      const block = top <= info.lineEnd ? lines.slice(top, bottom + 1) : [];
+      const embeds = findEmbeds(block);
+      const matches = embeds.length === items.length && embeds.every((e, i) =>
+        links[i] === null || (e.text.startsWith('![[') && linkOf(e.text.slice(3, -2)) === links[i])
+      );
+      if (!matches) {
+        error = "couldn't match the images to the note's text.";
+        return data;
+      }
+      const moved = moveEmbed(block, from, to, after);
+      if (!moved) return data;
+      lines.splice(top, block.length, ...moved);
+      return lines.join(eol);
+    });
+    if (error) new obsidian.Notice('Metal Media Gallery: ' + error);
+  }
+
+  /* Rewrite a file through fn. Vault.process (atomic) needs Obsidian 1.1. */
+  async processFile(file, fn) {
+    const vault = this.app.vault;
+    if (vault.process) return vault.process(file, fn);
+    const data = await vault.read(file);
+    const next = fn(data);
+    if (next !== data) await vault.modify(file, next);
+  }
+
   /* The content of a gallery callout not set up yet, now marked as set up,
      or null. */
   claimContent(callout) {
@@ -485,20 +688,22 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     child.register(() => mo.disconnect());
   }
 
-  setupMasonry(callout, ctx) {
+  setupMasonry(callout, ctx, sectionEl) {
     const content = this.claimContent(callout);
     if (!content) return;
     const child = this.galleryChild(callout, ctx);
+    this.setupReorder(child, content, sectionEl, ctx, true);
     this.watchAdded(child, content, () => decodeAsync(content));
     decodeAsync(content);
   }
 
   /* Wire up one justified gallery: (re)layout as media arrive and load, and
      on resize. */
-  setupJustified(callout, ctx) {
+  setupJustified(callout, ctx, sectionEl) {
     const content = this.claimContent(callout);
     if (!content) return;
     const child = this.galleryChild(callout, ctx);
+    this.setupReorder(child, content, sectionEl, ctx, false);
 
     // A large gallery fires many load/loadedmetadata events in quick
     // succession, and each full re-layout re-flows the whole gallery, so
@@ -806,4 +1011,6 @@ class MediaGallerySettingTab extends obsidian.PluginSettingTab {
 }
 
 module.exports = MediaGalleryPlugin;
-module.exports.packRows = packRows; // exposed for test/pack.test.js
+// Pure helpers, exposed for the tests in test/.
+module.exports.packRows = packRows;
+module.exports.moveEmbed = moveEmbed;

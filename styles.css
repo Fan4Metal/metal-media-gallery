@@ -82,6 +82,29 @@
   display: none;       /* failed to load; the JS leaves it out of the rows */
 }
 
+/* ---- Ctrl/Cmd + drag reordering (main.js dragItem) ---------------------- */
+.markdown-preview-view .callout[data-callout^="gallery"] .mg-dragging {
+  opacity: 0.4;
+}
+/* A bar in the gap on the side the dragged image will land. */
+.markdown-preview-view .callout[data-callout="gallery"] .mg-drop-before {
+  box-shadow: -4px 0 0 0 var(--interactive-accent);
+}
+.markdown-preview-view .callout[data-callout="gallery"] .mg-drop-after {
+  box-shadow: 4px 0 0 0 var(--interactive-accent);
+}
+.markdown-preview-view .callout[data-callout="gallery-masonry"] .mg-drop-before {
+  box-shadow: 0 -4px 0 0 var(--interactive-accent);
+}
+.markdown-preview-view .callout[data-callout="gallery-masonry"] .mg-drop-after {
+  box-shadow: 0 4px 0 0 var(--interactive-accent);
+}
+body.mg-reordering,
+body.mg-reordering * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
 /* ========================================================================= */
 /* [!gallery-masonry] — Pinterest-style columns (pure CSS)                   */
 /* ========================================================================= */
