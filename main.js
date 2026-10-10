@@ -121,6 +121,31 @@ function groupEmbeds(lines, picked) {
     !(ROW_SEPARATOR.test(out[n - 1] || '') || GALLERY_HEADER.test(out[n - 1] || '')));
 }
 
+/* Remove the *** separators that bound the groups the `picked` embeds
+   (indices into findEmbeds(lines)) are in — the nearest one above and
+   below each — so those images go back to the automatic flow. Returns the
+   new lines, or null if there is no such separator. */
+function ungroupEmbeds(lines, picked) {
+  const embeds = findEmbeds(lines);
+  const drop = new Set();
+  for (const i of picked) {
+    const at = embeds[i].line;
+    for (let n = at - 1; n >= 0; n--) {
+      if (ROW_SEPARATOR.test(lines[n])) {
+        drop.add(n);
+        break;
+      }
+    }
+    for (let n = at + 1; n < lines.length; n++) {
+      if (ROW_SEPARATOR.test(lines[n])) {
+        drop.add(n);
+        break;
+      }
+    }
+  }
+  return drop.size ? lines.filter((line, n) => !drop.has(n)) : null;
+}
+
 /* A gallery's rendered embeds, one per ![[…]] / ![…](…) in its source: the
    outermost .internal-embed spans (a missing file, an audio clip or an
    embedded note still has one, with or without media inside), plus media
@@ -202,6 +227,11 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       name: 'Remove empty lines in gallery',
       editorCallback: (editor) => this.compactGallery(editor),
     });
+    this.addCommand({
+      id: 'remove-row-separators',
+      name: 'Remove row separators (***) in gallery',
+      editorCallback: (editor) => this.removeSeparators(editor),
+    });
 
     this.ribbonEl = null;
     this.applyRibbon();
@@ -218,6 +248,9 @@ class MediaGalleryPlugin extends obsidian.Plugin {
           );
           menu.addItem((i) =>
             i.setTitle('Remove empty lines in gallery').setIcon('eraser').onClick(() => this.compactGallery(editor))
+          );
+          menu.addItem((i) =>
+            i.setTitle('Remove row separators (***)').setIcon('trash-2').onClick(() => this.removeSeparators(editor))
           );
           menu.addItem((i) =>
             i.setTitle('Remove gallery').setIcon('x').onClick(() => this.unwrapSelection(editor))
@@ -337,6 +370,10 @@ class MediaGalleryPlugin extends obsidian.Plugin {
         menu.addItem((i) =>
           i.setTitle('Remove empty lines').setIcon('eraser')
             .onClick(() => this.withActiveEditor((editor) => this.compactGallery(editor)))
+        );
+        menu.addItem((i) =>
+          i.setTitle('Remove row separators').setIcon('trash-2')
+            .onClick(() => this.withActiveEditor((editor) => this.removeSeparators(editor)))
         );
         menu.addSeparator();
         menu.addItem((i) =>
@@ -489,6 +526,29 @@ class MediaGalleryPlugin extends obsidian.Plugin {
         { line: top, ch: 0 },
         { line: bottom, ch: editor.getLine(bottom).length }
       );
+    }
+  }
+
+  /* Remove *** row separators: the one on the cursor's line, those among
+     the selected lines, or else all of the gallery at the cursor. */
+  removeSeparators(editor) {
+    const { fromLine, toLine } = this.selectedLines(editor);
+    const selected = editor.somethingSelected();
+    const onSeparator = !selected && ROW_SEPARATOR.test(editor.getLine(fromLine));
+    let removed = 0;
+    for (const { top, bottom } of this.touchedGalleries(editor)) {
+      const lo = selected || onSeparator ? Math.max(top, fromLine) : top;
+      const hi = selected || onSeparator ? Math.min(bottom, toLine) : bottom;
+      for (let n = hi; n >= lo; n--) { // bottom-up keeps the lines above in place
+        if (!ROW_SEPARATOR.test(editor.getLine(n))) continue;
+        // Take the line with its line break (the one before it at the end of the note).
+        if (n < editor.lastLine()) editor.replaceRange('', { line: n, ch: 0 }, { line: n + 1, ch: 0 });
+        else editor.replaceRange('', { line: n - 1, ch: editor.getLine(n - 1).length }, { line: n, ch: editor.getLine(n).length });
+        removed++;
+      }
+    }
+    if (!removed && this.galleryTop(editor, fromLine) >= 0) {
+      new obsidian.Notice('Metal Media Gallery: no row separators here.');
     }
   }
 
@@ -693,7 +753,9 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       bar.appendChild(b);
     };
     button('One row', 'Put the selected images in a row of their own (between *** lines)',
-      () => this.groupSelection(), true);
+      () => this.editSelection(groupEmbeds), true);
+    button('Ungroup', 'Remove the *** lines around the groups of the selected images',
+      () => this.editSelection(ungroupEmbeds));
     button('✕', 'Clear the selection (Esc)', () => this.clearSelection());
     doc.body.appendChild(bar);
 
@@ -738,8 +800,9 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     this.sel = null;
   }
 
-  /* "One row": gather the selected images between *** separators. */
-  groupSelection() {
+  /* Apply edit(block, picked) to the gallery of the selection, where picked
+     are the selected images' embed indices, ascending; then clear it. */
+  editSelection(edit) {
     const sel = this.sel;
     if (!sel) return;
     const items = Array.from(sel.items);
@@ -748,7 +811,7 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       const picked = [...new Set(items.map((el) => units.indexOf(embedUnit(el))))]
         .filter((i) => i >= 0)
         .sort((a, b) => a - b);
-      return picked.length ? groupEmbeds(block, picked) : null;
+      return picked.length ? edit(block, picked) : null;
     });
   }
 
@@ -1279,3 +1342,4 @@ module.exports = MediaGalleryPlugin;
 module.exports.packRows = packRows;
 module.exports.moveEmbed = moveEmbed;
 module.exports.groupEmbeds = groupEmbeds;
+module.exports.ungroupEmbeds = ungroupEmbeds;

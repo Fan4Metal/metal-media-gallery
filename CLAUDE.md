@@ -24,7 +24,7 @@ reads `manifest.json` from the repository root to publish and update the plugin.
 ## Deploy / test loop
 
 Rendering is verified by hand in Obsidian. The pure pieces — the row-packing function
-`packRows` and the source rewrites `moveEmbed` / `groupEmbeds` — have a `node:test` suite (no dependencies; `main.js` is loaded with a stubbed
+`packRows` and the source rewrites `moveEmbed` / `groupEmbeds` / `ungroupEmbeds` — have a `node:test` suite (no dependencies; `main.js` is loaded with a stubbed
 `obsidian` module):
 
 ```powershell
@@ -99,9 +99,9 @@ on every visible justified gallery so changes appear live. When adding a setting
 
 ### Editor commands
 
-Five commands plus a ribbon menu wrap/unwrap the selection in a gallery callout
-(`wrapSelection` / `unwrapSelection`), insert `> ***` row separators (`insertSeparator`) and
-delete empty `>` lines (`compactGallery`). These operate on the **editor** (source mode); the
+Six commands plus a ribbon menu wrap/unwrap the selection in a gallery callout
+(`wrapSelection` / `unwrapSelection`), insert or remove `> ***` row separators
+(`insertSeparator` / `removeSeparators`) and delete empty `>` lines (`compactGallery`). These operate on the **editor** (source mode); the
 gallery rendering only happens in reading view. `withActiveEditor` bridges the ribbon button
 (which has no editor context) to the active `MarkdownView`. The `editor-menu` handler adds the
 same actions to the right-click menu, picked by whether the cursor is inside a gallery
@@ -115,14 +115,14 @@ drag with window-level capture listeners (class `mg-dragging` on the image, body
 target's on-screen box, because anything drawn inside the gallery gets clipped at the row
 edges by an ancestor), and the drop calls `moveItem`. Alt + pointerdown goes to `selectBox` instead: a fixed
 `.mg-marquee` box (or an Alt + click toggle) builds the selection — `this.sel`, one gallery at
-a time, with a fixed `.mg-toolbar` kept above it (`openSelection`); its *One row* button calls
-`groupSelection`. Both go through `rewriteGallery`, which rewrites the note
+a time, with a fixed `.mg-toolbar` kept above it (`openSelection`); its *One row* / *Ungroup* buttons
+call `editSelection` with `groupEmbeds` / `ungroupEmbeds`. Both go through `rewriteGallery`, which rewrites the note
 through `Vault.process` (read/modify fallback before 1.1): it re-reads the section via
 `ctx.getSectionInfo(sectionEl)` — so the post processor's `el` is passed down to the setup
 functions — checks the file still matches what was rendered, matches the rendered embeds (outermost
 `.internal-embed` spans plus bare media — so a missing file or audio clip still counts) to the
 gallery block's embeds by order (`galleryUnits` / `embedUnit`), and applies the edit —
-`moveEmbed` or `groupEmbeds`, both pure and tested. Lazy-continuation lines are given a `> `
+`moveEmbed`, `groupEmbeds` or `ungroupEmbeds`, all pure and tested. Lazy-continuation lines are given a `> `
 prefix first. Any
 mismatch leaves the file untouched and shows a notice.
 

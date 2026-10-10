@@ -2,7 +2,7 @@
 
 // Run with:  node --test
 // Exercises moveEmbed and groupEmbeds, the source rewrites behind Ctrl+drag
-// reordering and the "One row" action on a selection.
+// reordering and the "One row" / "Ungroup" actions on a selection.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -15,7 +15,7 @@ Module._load = function (request, ...rest) {
   if (request === 'obsidian') return { Plugin: class {}, PluginSettingTab: class {} };
   return origLoad.call(this, request, ...rest);
 };
-const { moveEmbed, groupEmbeds } = require('../main.js');
+const { moveEmbed, groupEmbeds, ungroupEmbeds } = require('../main.js');
 Module._load = origLoad;
 
 const H = '> [!gallery]';
@@ -94,4 +94,20 @@ test('embeds sharing a line are split out of it', () => {
     groupEmbeds([H, '> ![[a]] ![[b]] ![[c]] ![[d]]'], [1, 3]),
     [H, '> ![[a]]', S, '> ![[b]]', '> ![[d]]', S, '> ![[c]]']
   );
+});
+
+/* ungroupEmbeds: the "Ungroup" action on selected images. */
+
+test('ungroup removes the separators around the picked embeds group', () => {
+  const lines = [H, '> ![[a]]', S, '> ![[b]]', '> ![[c]]', S, '> ![[d]]'];
+  assert.deepEqual(ungroupEmbeds(lines, [1]), [H, '> ![[a]]', '> ![[b]]', '> ![[c]]', '> ![[d]]']);
+});
+
+test('ungroup in the first group removes only the separator below it', () => {
+  const lines = [H, '> ![[a]]', S, '> ![[b]]', S, '> ![[c]]'];
+  assert.deepEqual(ungroupEmbeds(lines, [0]), [H, '> ![[a]]', '> ![[b]]', S, '> ![[c]]']);
+});
+
+test('ungroup with no separators changes nothing', () => {
+  assert.equal(ungroupEmbeds(G, [1, 2]), null);
 });

@@ -58,7 +58,7 @@ In `[!gallery]`, a `***` line ends a group of images: the group is packed on its
 
 A short group (two to four images) becomes a single row; a longer one is split into several full rows. A full-width row of portraits can get tall — **Max row height** caps it. Use `***`, not `---`: right under an image line, `---` turns that line into a heading. Masonry galleries ignore the separator.
 
-The **Insert row separator** command (also in the ribbon menu) adds `> ***` after the cursor's line (or turns the cursor's empty `>` line into it); with lines selected inside a gallery, it puts a separator before and after them, so the selection becomes a row of its own.
+The **Insert row separator** command (also in the ribbon menu) adds `> ***` after the cursor's line (or turns the cursor's empty `>` line into it); with lines selected inside a gallery, it puts a separator before and after them, so the selection becomes a row of its own. **Remove row separators** takes them out again: the one on the cursor's line, those among the selected lines, or else all of the gallery's.
 
 ### Reordering images
 
@@ -73,6 +73,7 @@ Lines placed right after a gallery without a `>` (and without a blank line in be
 In reading view, hold **Alt** (**Option** on macOS) and drag a box over a gallery: every image it touches is selected (outlined). **Shift + Alt** + drag adds to the selection, and **Alt + click** adds or removes a single image, so scattered images can be picked too. A small toolbar appears above the selection:
 
 - **One row** gathers the selected images where the first of them is, one per line, between `***` separators — they become a group of their own, usually a single full-width row (see [Keeping images on one row](#keeping-images-on-one-row)). Images that were elsewhere move next to the first one.
+- **Ungroup** removes the `***` separators around the groups the selected images are in, returning them to the automatic flow.
 - **✕** (or **Esc**, or a click anywhere else) clears the selection.
 
 > **Tip:** for a single image, just embed it normally (outside a callout) — galleries are for groups.
@@ -86,6 +87,7 @@ Instead of typing the callout by hand, select the image lines and run a command:
 - **Metal Media Gallery: Remove gallery callout wrapping**
 - **Metal Media Gallery: Insert row separator (\*\*\*) in gallery** — see [Keeping images on one row](#keeping-images-on-one-row)
 - **Metal Media Gallery: Remove empty lines in gallery** — deletes the empty `>` lines from the gallery at the cursor (or every gallery the selection touches)
+- **Metal Media Gallery: Remove row separators (\*\*\*) in gallery**
 
 Open the command palette (`Ctrl/Cmd+P`) and run one, or assign a hotkey in **Settings → Hotkeys**. Each selected line gets a `> ` prefix and a `> [!gallery]` header is added on top. With no selection, it wraps the current line. Commands always act on whole lines, even if the selection starts or ends mid-line.
 
@@ -93,9 +95,9 @@ Open the command palette (`Ctrl/Cmd+P`) and run one, or assign a hotkey in **Set
 
 **Unwrap** removes the `[!gallery]` header and strips one level of `> ` from the whole gallery (row separators are dropped too) — place the cursor anywhere inside it, or select lines to unwrap every gallery they touch. Other callouts and quotes are left alone.
 
-There is also a **ribbon button** (left sidebar, grid icon): select your image lines, click it, and pick *Justified*, *Masonry*, *Row separator*, *Remove empty lines*, or *Remove gallery*. Toggle it off in **Settings → Metal Media Gallery → Ribbon button**.
+There is also a **ribbon button** (left sidebar, grid icon): select your image lines, click it, and pick *Justified*, *Masonry*, *Row separator*, *Remove empty lines*, *Remove row separators*, or *Remove gallery*. Toggle it off in **Settings → Metal Media Gallery → Ribbon button**.
 
-The same actions are in the editor's **right-click menu**: *Wrap in gallery* / *Wrap in masonry gallery* outside a gallery, *Insert row separator* / *Remove empty lines in gallery* / *Remove gallery* inside one. Toggle them off in **Settings → Metal Media Gallery → Editor context menu**.
+The same actions are in the editor's **right-click menu**: *Wrap in gallery* / *Wrap in masonry gallery* outside a gallery, *Insert row separator* / *Remove empty lines in gallery* / *Remove row separators* / *Remove gallery* inside one. Toggle them off in **Settings → Metal Media Gallery → Editor context menu**.
 
 ## Settings
 
