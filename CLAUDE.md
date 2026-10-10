@@ -116,7 +116,10 @@ target's on-screen box, because anything drawn inside the gallery gets clipped a
 edges by an ancestor), and the drop calls `moveItem`. Alt + pointerdown goes to `selectBox` instead: a fixed
 `.mg-marquee` box (or an Alt + click toggle) builds the selection — `this.sel`, one gallery at
 a time, with a fixed `.mg-toolbar` kept above it (`openSelection`); its *One row* / *Ungroup* buttons
-call `editSelection` with `groupEmbeds` / `ungroupEmbeds`. Both go through `rewriteGallery`, which rewrites the note
+call `editSelection` with `groupEmbeds` / `ungroupEmbeds`. Both gestures suppress native
+scrolling, so `scrollWhileDragging` provides it: the wheel (captured, also beating Ctrl+wheel
+zoom) and an edge auto-scroll loop, each followed by the gesture's `update()` hit test; the
+selection box's corner is stored relative to the content so scrolling stretches it. Both go through `rewriteGallery`, which rewrites the note
 through `Vault.process` (read/modify fallback before 1.1): it re-reads the section via
 `ctx.getSectionInfo(sectionEl)` — so the post processor's `el` is passed down to the setup
 functions — checks the file still matches what was rendered, matches the rendered embeds (outermost

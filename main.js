@@ -146,6 +146,16 @@ function ungroupEmbeds(lines, picked) {
   return drop.size ? lines.filter((line, n) => !drop.has(n)) : null;
 }
 
+/* The nearest ancestor of el that scrolls vertically (the note's view). */
+function scrollParent(el) {
+  const win = el.ownerDocument.defaultView || window;
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const overflow = win.getComputedStyle(p).overflowY;
+    if ((overflow === 'auto' || overflow === 'scroll') && p.scrollHeight > p.clientHeight) return p;
+  }
+  return null;
+}
+
 /* A gallery's rendered embeds, one per ![[…]] / ![…](…) in its source: the
    outermost .internal-embed spans (a missing file, an audio clip or an
    embedded note still has one, with or without media inside), plus media
@@ -658,18 +668,26 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     const box = doc.createElement('div');
     box.className = 'mg-marquee';
     let active = false;
+    // The box's corner is pinned to the content, so scrolling stretches it.
+    const c0 = content.getBoundingClientRect();
+    const sx = down.clientX - c0.left;
+    const sy = down.clientY - c0.top;
+    const pointer = { x: down.clientX, y: down.clientY };
 
-    const onMove = (e) => {
+    const update = () => {
+      const c = content.getBoundingClientRect();
+      const x0 = c.left + sx;
+      const y0 = c.top + sy;
       if (!active) {
-        if (Math.hypot(e.clientX - down.clientX, e.clientY - down.clientY) < 5) return;
+        if (Math.hypot(pointer.x - x0, pointer.y - y0) < 5) return;
         active = true;
         doc.body.appendChild(box);
         doc.body.classList.add('mg-selecting');
       }
-      const l = Math.min(down.clientX, e.clientX);
-      const r = Math.max(down.clientX, e.clientX);
-      const t = Math.min(down.clientY, e.clientY);
-      const b = Math.max(down.clientY, e.clientY);
+      const l = Math.min(x0, pointer.x);
+      const r = Math.max(x0, pointer.x);
+      const t = Math.min(y0, pointer.y);
+      const b = Math.max(y0, pointer.y);
       Object.assign(box.style, { left: l + 'px', top: t + 'px', width: r - l + 'px', height: b - t + 'px' });
       const picked = new Set(down.shiftKey ? base : []);
       content.querySelectorAll('img, video').forEach((el) => {
@@ -678,8 +696,16 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       });
       this.setSelection(content, sectionEl, ctx, picked);
     };
+    const scroll = this.scrollWhileDragging(content, pointer, update);
+    const onMove = (e) => {
+      pointer.x = e.clientX;
+      pointer.y = e.clientY;
+      update();
+      scroll.kick();
+    };
 
     const finish = (cancel) => {
+      scroll.stop();
       win.removeEventListener('pointermove', onMove, true);
       win.removeEventListener('pointerup', onUp, true);
       win.removeEventListener('pointercancel', onCancel, true);
@@ -851,9 +877,10 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       placeBar();
     };
 
-    const onMove = (e) => {
+    const pointer = { x: down.clientX, y: down.clientY };
+    const update = () => {
       if (!active) {
-        if (Math.hypot(e.clientX - down.clientX, e.clientY - down.clientY) < 5) return;
+        if (Math.hypot(pointer.x - down.clientX, pointer.y - down.clientY) < 5) return;
         active = true;
         item.classList.add('mg-dragging');
         doc.body.classList.add('mg-reordering');
@@ -861,19 +888,27 @@ class MediaGalleryPlugin extends obsidian.Plugin {
         win.addEventListener('scroll', placeBar, true); // the target moves under a still pointer
       }
       const r = content.getBoundingClientRect();
-      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) {
+      if (pointer.x < r.left || pointer.x > r.right || pointer.y < r.top || pointer.y > r.bottom) {
         setTarget(null);
         return;
       }
-      const over = doc.elementFromPoint(e.clientX, e.clientY);
+      const over = doc.elementFromPoint(pointer.x, pointer.y);
       const el = over && over.closest('img, video');
       if (!el || !content.contains(el)) return; // in a gap: keep the last target
       const b = el.getBoundingClientRect();
-      const isAfter = vertical ? e.clientY > b.top + b.height / 2 : e.clientX > b.left + b.width / 2;
+      const isAfter = vertical ? pointer.y > b.top + b.height / 2 : pointer.x > b.left + b.width / 2;
       setTarget(el === item ? null : el, isAfter);
+    };
+    const scroll = this.scrollWhileDragging(content, pointer, update);
+    const onMove = (e) => {
+      pointer.x = e.clientX;
+      pointer.y = e.clientY;
+      update();
+      scroll.kick();
     };
 
     const finish = (drop) => {
+      scroll.stop();
       win.removeEventListener('pointermove', onMove, true);
       win.removeEventListener('pointerup', onUp, true);
       win.removeEventListener('pointercancel', onCancel, true);
@@ -908,6 +943,53 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     win.addEventListener('pointerup', onUp, true);
     win.addEventListener('pointercancel', onCancel, true);
     win.addEventListener('keydown', onKey, true);
+  }
+
+  /* Scrolling during a drag or box selection, whose pointerdown suppressed
+     the native kind: the wheel scrolls the note (with Ctrl held it would
+     zoom instead), and so does holding the pointer near the note's top or
+     bottom edge, faster closer to it. update() runs after each scroll step
+     so the hit test follows the content. Returns { kick, stop }; call
+     kick() after each pointer move. */
+  scrollWhileDragging(content, pointer, update) {
+    const win = content.ownerDocument.defaultView || window;
+    const scroller = scrollParent(content);
+    if (!scroller) return { kick() {}, stop() {} };
+    const scrollBy = (dy) => {
+      const before = scroller.scrollTop;
+      scroller.scrollBy({ top: dy, behavior: 'instant' });
+      return scroller.scrollTop !== before;
+    };
+
+    const onWheel = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? scroller.clientHeight : 1;
+      if (scrollBy(e.deltaY * unit)) update();
+    };
+    win.addEventListener('wheel', onWheel, { capture: true, passive: false });
+
+    let frame = 0;
+    const step = () => {
+      frame = 0;
+      const r = scroller.getBoundingClientRect();
+      const edge = Math.min(60, r.height / 4);
+      const into = pointer.y < r.top + edge ? pointer.y - (r.top + edge)
+        : pointer.y > r.bottom - edge ? pointer.y - (r.bottom - edge)
+        : 0;
+      if (!into || !scrollBy(Math.max(-25, Math.min(25, into / 3)))) return; // out of the zone, or at the end
+      update();
+      frame = win.requestAnimationFrame(step); // keep going while the pointer rests there
+    };
+    return {
+      kick: () => {
+        if (!frame) frame = win.requestAnimationFrame(step);
+      },
+      stop: () => {
+        win.removeEventListener('wheel', onWheel, { capture: true });
+        win.cancelAnimationFrame(frame);
+      },
+    };
   }
 
   /* Move `item` before (or after) `target` in the note's source. */

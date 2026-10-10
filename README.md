@@ -62,7 +62,7 @@ The **Insert row separator** command (also in the ribbon menu) adds `> ***` afte
 
 ### Reordering images
 
-In reading view, hold **Ctrl** (**Cmd** on macOS) and drag an image to another place in the same gallery — handy for grouping similar shots. A bar shows where it will land: left or right of the image under the pointer (above or below it in a masonry gallery, whose order runs down the columns). On release the embed is moved in the note's text and the gallery redraws; **Esc** cancels the drag. An image alone on its line moves with its line; one that shares a line with others moves inline. Without Ctrl, clicks work as usual.
+In reading view, hold **Ctrl** (**Cmd** on macOS) and drag an image to another place in the same gallery — handy for grouping similar shots. A bar shows where it will land: left or right of the image under the pointer (above or below it in a masonry gallery, whose order runs down the columns). On release the embed is moved in the note's text and the gallery redraws; **Esc** cancels the drag. While dragging (or drawing a selection box), the mouse wheel scrolls the note, and so does moving the pointer to its top or bottom edge. An image alone on its line moves with its line; one that shares a line with others moves inline. Without Ctrl, clicks work as usual.
 
 If the gallery can't be matched to the note's text — the note changed in the meantime, or the gallery shows images from an embedded note — nothing is changed and a notice explains why.
 
