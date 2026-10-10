@@ -59,6 +59,8 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     // Aspect ratio by image URL. A note re-rendered or re-opened lays out
     // correctly on the first pass instead of jumping once the images load.
     this.arCache = new Map();
+    // Render children of the justified galleries set up so far (see onunload).
+    this.galleries = new Set();
 
     this.applyCssVars();
     // Popout windows have their own document, so style each as it opens.
@@ -135,6 +137,20 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       this.writeSettings();
     }
     this.removeCssVars();
+
+    // Rendered notes outlive the plugin: stop their galleries' observers and
+    // timers, and give the media back their natural size.
+    this.galleries.forEach((child) => child.unload());
+    this.documents().forEach((doc) => {
+      doc.querySelectorAll('.callout-content[data-mg-ready]').forEach((content) => {
+        delete content.dataset.mgReady;
+        content.querySelectorAll('img, video').forEach((el) => {
+          el.style.removeProperty('width');
+          el.style.removeProperty('height');
+          el.classList.remove('mg-broken');
+        });
+      });
+    });
   }
 
   writeSettings() {
@@ -317,6 +333,8 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     content.dataset.mgReady = '1';
 
     const child = new obsidian.MarkdownRenderChild(callout);
+    this.galleries.add(child);
+    child.register(() => this.galleries.delete(child));
     const imgs = Array.from(content.querySelectorAll('img, video'));
 
     // A large gallery fires many load/loadedmetadata events in quick
