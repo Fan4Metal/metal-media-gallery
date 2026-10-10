@@ -132,4 +132,4 @@ Bump `version` in `manifest.json` and add it to `versions.json` first. The scrip
 
 ## License
 
-MIT
+[MIT](LICENSE)
