@@ -99,8 +99,9 @@ on every visible justified gallery so changes appear live. When adding a setting
 
 ### Editor commands
 
-Four commands plus a ribbon menu wrap/unwrap the selection in a gallery callout
-(`wrapSelection` / `unwrapSelection`) and insert `> ***` row separators (`insertSeparator`). These operate on the **editor** (source mode); the
+Five commands plus a ribbon menu wrap/unwrap the selection in a gallery callout
+(`wrapSelection` / `unwrapSelection`), insert `> ***` row separators (`insertSeparator`) and
+delete empty `>` lines (`compactGallery`). These operate on the **editor** (source mode); the
 gallery rendering only happens in reading view. `withActiveEditor` bridges the ribbon button
 (which has no editor context) to the active `MarkdownView`. The `editor-menu` handler adds the
 same actions to the right-click menu, picked by whether the cursor is inside a gallery

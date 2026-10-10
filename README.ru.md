@@ -68,6 +68,7 @@
 - **Metal Media Gallery: Wrap selection in masonry gallery callout**
 - **Metal Media Gallery: Remove gallery callout wrapping**
 - **Metal Media Gallery: Insert row separator (\*\*\*) in gallery** — см. [Несколько картинок в одном ряду](#несколько-картинок-в-одном-ряду)
+- **Metal Media Gallery: Remove empty lines in gallery** — удаляет пустые строки `>` из галереи под курсором (или из всех галерей, затронутых выделением)
 
 Нужная команда запускается из палитры команд (`Ctrl/Cmd+P`); также ей можно назначить горячую клавишу в **Settings → Hotkeys**. Каждая выделенная строка получит префикс `> `, а сверху добавится заголовок `> [!gallery]`. Если ничего не выделено — обернётся текущая строка. Команды всегда работают с целыми строками, даже если выделение начинается или заканчивается посреди строки.
 
@@ -75,9 +76,9 @@
 
 **Снятие обёртки** убирает заголовок `[!gallery]` и один уровень `> ` со всей галереи (разделители рядов тоже удаляются) — достаточно поставить курсор в любое место внутри неё; при выделении снимается обёртка со всех затронутых галерей. Другие callout'ы и цитаты не затрагиваются.
 
-Есть также **кнопка на ленте** (левая панель, иконка сетки): после выделения строк с картинками нажатие кнопки предлагает выбор *Justified*, *Masonry*, *Row separator* или *Remove gallery*. Скрыть кнопку можно в **Settings → Metal Media Gallery → Ribbon button**.
+Есть также **кнопка на ленте** (левая панель, иконка сетки): после выделения строк с картинками нажатие кнопки предлагает выбор *Justified*, *Masonry*, *Row separator*, *Remove empty lines* или *Remove gallery*. Скрыть кнопку можно в **Settings → Metal Media Gallery → Ribbon button**.
 
-Те же действия есть в **контекстном меню редактора** (правая кнопка мыши): вне галереи — *Wrap in gallery* / *Wrap in masonry gallery*, внутри неё — *Insert row separator* / *Remove gallery*. Отключить их можно в **Settings → Metal Media Gallery → Editor context menu**.
+Те же действия есть в **контекстном меню редактора** (правая кнопка мыши): вне галереи — *Wrap in gallery* / *Wrap in masonry gallery*, внутри неё — *Insert row separator* / *Remove empty lines in gallery* / *Remove gallery*. Отключить их можно в **Settings → Metal Media Gallery → Editor context menu**.
 
 ## Настройки
 

@@ -100,6 +100,11 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       name: 'Insert row separator (***) in gallery',
       editorCallback: (editor) => this.insertSeparator(editor),
     });
+    this.addCommand({
+      id: 'remove-empty-lines',
+      name: 'Remove empty lines in gallery',
+      editorCallback: (editor) => this.compactGallery(editor),
+    });
 
     this.ribbonEl = null;
     this.applyRibbon();
@@ -113,6 +118,9 @@ class MediaGalleryPlugin extends obsidian.Plugin {
         if (inGallery) {
           menu.addItem((i) =>
             i.setTitle('Insert row separator (***)').setIcon('minus').onClick(() => this.insertSeparator(editor))
+          );
+          menu.addItem((i) =>
+            i.setTitle('Remove empty lines in gallery').setIcon('eraser').onClick(() => this.compactGallery(editor))
           );
           menu.addItem((i) =>
             i.setTitle('Remove gallery').setIcon('x').onClick(() => this.unwrapSelection(editor))
@@ -228,6 +236,10 @@ class MediaGalleryPlugin extends obsidian.Plugin {
           i.setTitle('Row separator (***)').setIcon('minus')
             .onClick(() => this.withActiveEditor((editor) => this.insertSeparator(editor)))
         );
+        menu.addItem((i) =>
+          i.setTitle('Remove empty lines').setIcon('eraser')
+            .onClick(() => this.withActiveEditor((editor) => this.compactGallery(editor)))
+        );
         menu.addSeparator();
         menu.addItem((i) =>
           i.setTitle('Remove gallery').setIcon('x').onClick(() => this.unwrapActive())
@@ -279,6 +291,24 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     const last = editor.lastLine();
     while (n < last && QUOTE.test(editor.getLine(n + 1))) n++;
     return n;
+  }
+
+  /* The gallery callouts that the selection (or the cursor's line) touches,
+     as { top, bottom } line ranges, last first, so editing them in order
+     keeps the line numbers of the ones still to come valid. With none, a
+     notice is shown and the list is empty. */
+  touchedGalleries(editor) {
+    const { fromLine, toLine } = this.selectedLines(editor);
+    const blocks = [];
+    for (let n = fromLine; n <= toLine; n++) {
+      if (!QUOTE.test(editor.getLine(n))) continue;
+      const top = this.quoteTop(editor, n);
+      const bottom = this.quoteBottom(editor, n);
+      if (GALLERY_HEADER.test(editor.getLine(top))) blocks.push({ top, bottom });
+      n = bottom;
+    }
+    if (!blocks.length) new obsidian.Notice('Metal Media Gallery: no gallery callout at the cursor.');
+    return blocks.reverse();
   }
 
   /* Header line of the gallery callout that contains line n, or -1. */
@@ -349,27 +379,36 @@ class MediaGalleryPlugin extends obsidian.Plugin {
      touches: drop its header and row separators, and strip one level of
      "> " from all its lines. Other quotes and callouts are left alone. */
   unwrapSelection(editor) {
-    const { fromLine, toLine } = this.selectedLines(editor);
-    const blocks = [];
-    for (let n = fromLine; n <= toLine; n++) {
-      if (!QUOTE.test(editor.getLine(n))) continue;
-      const top = this.quoteTop(editor, n);
-      const bottom = this.quoteBottom(editor, n);
-      if (GALLERY_HEADER.test(editor.getLine(top))) blocks.push({ top, bottom });
-      n = bottom;
-    }
-    if (!blocks.length) {
-      new obsidian.Notice('Metal Media Gallery: no gallery callout at the cursor.');
-      return;
-    }
-
-    // Bottom-up, so the line numbers of the blocks above stay valid.
-    for (const { top, bottom } of blocks.reverse()) {
+    for (const { top, bottom } of this.touchedGalleries(editor)) {
       const lines = [];
       for (let n = top + 1; n <= bottom; n++) {
         const line = editor.getLine(n);
         if (ROW_SEPARATOR.test(line)) continue; // would become a horizontal rule
         lines.push(line.replace(/^(\s*)>\s?/, '$1'));
+      }
+      editor.replaceRange(
+        lines.join('\n'),
+        { line: top, ch: 0 },
+        { line: bottom, ch: editor.getLine(bottom).length }
+      );
+    }
+  }
+
+  /* Remove the empty ">" lines from every gallery callout that the selection
+     (or the cursor's line) touches. */
+  compactGallery(editor) {
+    for (const { top, bottom } of this.touchedGalleries(editor)) {
+      const lines = [];
+      for (let n = top; n <= bottom; n++) {
+        const line = editor.getLine(n);
+        if (!EMPTY_QUOTE.test(line)) lines.push(line);
+      }
+      if (lines.length === bottom - top + 1) continue; // nothing to remove
+      // An empty ">" at the end kept a following paragraph out of the
+      // callout; without it, that line would join as a lazy continuation.
+      if (EMPTY_QUOTE.test(editor.getLine(bottom)) && bottom < editor.lastLine() &&
+          editor.getLine(bottom + 1).trim()) {
+        lines.push('');
       }
       editor.replaceRange(
         lines.join('\n'),

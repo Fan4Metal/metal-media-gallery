@@ -68,6 +68,7 @@ Instead of typing the callout by hand, select the image lines and run a command:
 - **Metal Media Gallery: Wrap selection in masonry gallery callout**
 - **Metal Media Gallery: Remove gallery callout wrapping**
 - **Metal Media Gallery: Insert row separator (\*\*\*) in gallery** — see [Keeping images on one row](#keeping-images-on-one-row)
+- **Metal Media Gallery: Remove empty lines in gallery** — deletes the empty `>` lines from the gallery at the cursor (or every gallery the selection touches)
 
 Open the command palette (`Ctrl/Cmd+P`) and run one, or assign a hotkey in **Settings → Hotkeys**. Each selected line gets a `> ` prefix and a `> [!gallery]` header is added on top. With no selection, it wraps the current line. Commands always act on whole lines, even if the selection starts or ends mid-line.
 
@@ -75,9 +76,9 @@ Open the command palette (`Ctrl/Cmd+P`) and run one, or assign a hotkey in **Set
 
 **Unwrap** removes the `[!gallery]` header and strips one level of `> ` from the whole gallery (row separators are dropped too) — place the cursor anywhere inside it, or select lines to unwrap every gallery they touch. Other callouts and quotes are left alone.
 
-There is also a **ribbon button** (left sidebar, grid icon): select your image lines, click it, and pick *Justified*, *Masonry*, *Row separator*, or *Remove gallery*. Toggle it off in **Settings → Metal Media Gallery → Ribbon button**.
+There is also a **ribbon button** (left sidebar, grid icon): select your image lines, click it, and pick *Justified*, *Masonry*, *Row separator*, *Remove empty lines*, or *Remove gallery*. Toggle it off in **Settings → Metal Media Gallery → Ribbon button**.
 
-The same actions are in the editor's **right-click menu**: *Wrap in gallery* / *Wrap in masonry gallery* outside a gallery, *Insert row separator* / *Remove gallery* inside one. Toggle them off in **Settings → Metal Media Gallery → Editor context menu**.
+The same actions are in the editor's **right-click menu**: *Wrap in gallery* / *Wrap in masonry gallery* outside a gallery, *Insert row separator* / *Remove empty lines in gallery* / *Remove gallery* inside one. Toggle them off in **Settings → Metal Media Gallery → Editor context menu**.
 
 ## Settings
 
