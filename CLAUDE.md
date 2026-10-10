@@ -24,7 +24,7 @@ reads `manifest.json` from the repository root to publish and update the plugin.
 ## Deploy / test loop
 
 Rendering is verified by hand in Obsidian. The pure pieces — the row-packing function
-`packRows` and `moveEmbed`, the source rewrite behind drag reordering — have a `node:test` suite (no dependencies; `main.js` is loaded with a stubbed
+`packRows` and the source rewrites `moveEmbed` / `groupEmbeds` — have a `node:test` suite (no dependencies; `main.js` is loaded with a stubbed
 `obsidian` module):
 
 ```powershell
@@ -107,18 +107,23 @@ gallery rendering only happens in reading view. `withActiveEditor` bridges the r
 same actions to the right-click menu, picked by whether the cursor is inside a gallery
 (`galleryTop`).
 
-### Drag reordering (reading view)
+### Pointer editing (reading view)
 
-`setupReorder` listens for Ctrl/Cmd + pointerdown on a gallery's media; `dragItem` follows the
+`setupInteractions` listens for Ctrl/Cmd + pointerdown on a gallery's media; `dragItem` follows the
 drag with window-level capture listeners (class `mg-dragging` on the image, body
 `mg-reordering`, and an `.mg-drop-bar` — a `position: fixed` element on `<body>` placed from the
 target's on-screen box, because anything drawn inside the gallery gets clipped at the row
-edges by an ancestor), and the drop calls `moveItem`. That rewrites the note
+edges by an ancestor), and the drop calls `moveItem`. Alt + pointerdown goes to `selectBox` instead: a fixed
+`.mg-marquee` box (or an Alt + click toggle) builds the selection — `this.sel`, one gallery at
+a time, with a fixed `.mg-toolbar` kept above it (`openSelection`); its *One row* button calls
+`groupSelection`. Both go through `rewriteGallery`, which rewrites the note
 through `Vault.process` (read/modify fallback before 1.1): it re-reads the section via
 `ctx.getSectionInfo(sectionEl)` — so the post processor's `el` is passed down to the setup
 functions — checks the file still matches what was rendered, matches the rendered embeds (outermost
 `.internal-embed` spans plus bare media — so a missing file or audio clip still counts) to the
-gallery block's embeds by order, and applies `moveEmbed`. Any
+gallery block's embeds by order (`galleryUnits` / `embedUnit`), and applies the edit —
+`moveEmbed` or `groupEmbeds`, both pure and tested. Lazy-continuation lines are given a `> `
+prefix first. Any
 mismatch leaves the file untouched and shows a notice.
 
 ## Manifest / release

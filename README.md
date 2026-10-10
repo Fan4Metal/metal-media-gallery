@@ -16,6 +16,7 @@ An Obsidian plugin that turns callouts into image galleries in reading view — 
 - **Reflows** on pane resize and as images load.
 - **Wider than the text column** — the gallery breaks out beyond the readable line width (configurable).
 - **Drag to reorder** — Ctrl/Cmd + drag an image in reading view to move it; the note's text is updated.
+- **Select and group** — Alt + drag a box (or Alt + click) to select images, then put them in a row of their own with one click.
 - **Lightbox-friendly** — pairs with the [Metal Image Viewer](https://github.com/Fan4Metal/metal-image-viewer) plugin for click-to-zoom.
 
 ## Usage
@@ -66,6 +67,13 @@ In reading view, hold **Ctrl** (**Cmd** on macOS) and drag an image to another p
 If the gallery can't be matched to the note's text — the note changed in the meantime, or the gallery shows images from an embedded note — nothing is changed and a notice explains why.
 
 Lines placed right after a gallery without a `>` (and without a blank line in between) still belong to it in Markdown, so their images show in the gallery; reordering rewrites them with a `> ` prefix, which changes nothing visible. To keep images outside a gallery, leave a blank line after it.
+
+### Selecting images and putting them in one row
+
+In reading view, hold **Alt** (**Option** on macOS) and drag a box over a gallery: every image it touches is selected (outlined). **Shift + Alt** + drag adds to the selection, and **Alt + click** adds or removes a single image, so scattered images can be picked too. A small toolbar appears above the selection:
+
+- **One row** gathers the selected images where the first of them is, one per line, between `***` separators — they become a group of their own, usually a single full-width row (see [Keeping images on one row](#keeping-images-on-one-row)). Images that were elsewhere move next to the first one.
+- **✕** (or **Esc**, or a click anywhere else) clears the selection.
 
 > **Tip:** for a single image, just embed it normally (outside a callout) — galleries are for groups.
 

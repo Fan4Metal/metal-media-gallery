@@ -1,7 +1,8 @@
 'use strict';
 
 // Run with:  node --test
-// Exercises moveEmbed, the source rewrite behind Ctrl+drag reordering.
+// Exercises moveEmbed and groupEmbeds, the source rewrites behind Ctrl+drag
+// reordering and the "One row" action on a selection.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -14,7 +15,7 @@ Module._load = function (request, ...rest) {
   if (request === 'obsidian') return { Plugin: class {}, PluginSettingTab: class {} };
   return origLoad.call(this, request, ...rest);
 };
-const { moveEmbed } = require('../main.js');
+const { moveEmbed, groupEmbeds } = require('../main.js');
 Module._load = origLoad;
 
 const H = '> [!gallery]';
@@ -60,4 +61,37 @@ test('markdown images and duplicate links are told apart by position', () => {
   const lines = [H, '> ![x](u.png)', '> ![[a]]', '> ![[a]]'];
   assert.deepEqual(moveEmbed(lines, 0, 2, true), [H, '> ![[a]]', '> ![[a]]', '> ![x](u.png)']);
   assert.deepEqual(moveEmbed(lines, 2, 1, false), [H, '> ![x](u.png)', '> ![[a]]', '> ![[a]]']);
+});
+
+/* groupEmbeds: the "One row" action on selected images. */
+
+const S = '> ***';
+const G = [H, '> ![[a]]', '> ![[b]]', '> ![[c]]', '> ![[d]]'];
+
+test('a run of embeds gets separators around it', () => {
+  assert.deepEqual(groupEmbeds(G, [1, 2]), [H, '> ![[a]]', S, '> ![[b]]', '> ![[c]]', S, '> ![[d]]']);
+});
+
+test('no separator right under the header', () => {
+  assert.deepEqual(groupEmbeds(G, [0, 1]), [H, '> ![[a]]', '> ![[b]]', S, '> ![[c]]', '> ![[d]]']);
+});
+
+test('the last embeds are closed too, so they fill the width', () => {
+  assert.deepEqual(groupEmbeds(G, [3]), [H, '> ![[a]]', '> ![[b]]', '> ![[c]]', S, '> ![[d]]', S]);
+});
+
+test('scattered embeds are gathered where the first one is', () => {
+  assert.deepEqual(groupEmbeds(G, [1, 3]), [H, '> ![[a]]', S, '> ![[b]]', '> ![[d]]', S, '> ![[c]]']);
+});
+
+test('existing separators are not doubled', () => {
+  const lines = [H, '> ![[a]]', S, '> ![[b]]', '> ![[c]]', S, '> ![[d]]'];
+  assert.deepEqual(groupEmbeds(lines, [1, 2]), lines);
+});
+
+test('embeds sharing a line are split out of it', () => {
+  assert.deepEqual(
+    groupEmbeds([H, '> ![[a]] ![[b]] ![[c]] ![[d]]'], [1, 3]),
+    [H, '> ![[a]]', S, '> ![[b]]', '> ![[d]]', S, '> ![[c]]']
+  );
 });

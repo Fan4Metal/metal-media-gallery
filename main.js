@@ -63,10 +63,9 @@ function moveEmbed(lines, from, to, after) {
 
   const out = lines.slice();
   const src = findEmbeds(out)[from];
-  const head = out[src.line].slice(0, src.start);
-  const tail = out[src.line].slice(src.end);
-  if (EMPTY_QUOTE.test(head + tail)) out.splice(src.line, 1);
-  else out[src.line] = head.replace(/\s+$/, '') + (tail.trim() ? ' ' + tail.replace(/^\s+/, '') : '');
+  const left = cutSpan(out[src.line], src.start, src.end);
+  if (EMPTY_QUOTE.test(left)) out.splice(src.line, 1);
+  else out[src.line] = left;
 
   const dst = findEmbeds(out)[to > from ? to - 1 : to];
   const line = out[dst.line];
@@ -78,6 +77,63 @@ function moveEmbed(lines, from, to, after) {
     out[dst.line] = line.slice(0, dst.start) + src.text + ' ' + line.slice(dst.start);
   }
   return out;
+}
+
+/* Cut [start, end) out of a gallery line, closing up the space around it. */
+function cutSpan(line, start, end) {
+  const head = line.slice(0, start);
+  const tail = line.slice(end);
+  return head.replace(/\s+$/, '') + (tail.trim() ? ' ' + tail.replace(/^\s+/, '') : '');
+}
+
+/* Gather the `picked` embeds (indices into findEmbeds(lines), ascending)
+   where the first of them is, one per line between *** separators, so they
+   form a group of their own: a short one is a single full-width row.
+   Embeds left behind keep their order; a separator doubled by the move, or
+   right under the header, is dropped. Returns the new lines. */
+function groupEmbeds(lines, picked) {
+  const embeds = findEmbeds(lines);
+  const pick = new Set(picked);
+  const first = embeds[picked[0]];
+  const group = ['> ***', ...picked.map((i) => '> ' + embeds[i].text), '> ***'];
+
+  const out = [];
+  lines.forEach((line, n) => {
+    // Picked embeds on this line, right to left so earlier offsets hold.
+    const cuts = embeds.filter((e, i) => e.line === n && pick.has(i) && e !== first).reverse();
+    if (n !== first.line) {
+      if (!cuts.length) return void out.push(line);
+      for (const e of cuts) line = cutSpan(line, e.start, e.end);
+      if (!EMPTY_QUOTE.test(line)) out.push(line);
+      return;
+    }
+    // The first picked embed's line splits around the group.
+    const prefix = (line.match(/^\s*>\s?/) || ['> '])[0];
+    let rest = line.slice(first.end);
+    for (const e of cuts) rest = cutSpan(rest, e.start - first.end, e.end - first.end);
+    const before = line.slice(0, first.start).replace(/\s+$/, '');
+    if (!EMPTY_QUOTE.test(before)) out.push(before);
+    out.push(...group);
+    if (rest.trim()) out.push(prefix + rest.trim());
+  });
+
+  return out.filter((line, n) => !ROW_SEPARATOR.test(line) ||
+    !(ROW_SEPARATOR.test(out[n - 1] || '') || GALLERY_HEADER.test(out[n - 1] || '')));
+}
+
+/* A gallery's rendered embeds, one per ![[…]] / ![…](…) in its source: the
+   outermost .internal-embed spans (a missing file, an audio clip or an
+   embedded note still has one, with or without media inside), plus media
+   not inside one (external images). */
+function galleryUnits(content) {
+  return Array.from(content.querySelectorAll('.internal-embed, img, video')).filter(
+    (el) => !(el.parentElement && el.parentElement.closest('.internal-embed'))
+  );
+}
+
+/* The rendered embed an image or video belongs to (see galleryUnits). */
+function embedUnit(el) {
+  return el.closest('.internal-embed') || el;
 }
 
 /* Decode a gallery's images off the main thread: a row of camera-sized
@@ -112,6 +168,7 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     this.arCache = new Map();
     // Render children of the justified galleries set up so far (see onunload).
     this.galleries = new Set();
+    this.sel = null; // the image selection in a gallery (setSelection)
 
     this.applyCssVars();
     // Popout windows have their own document, so style each as it opens.
@@ -230,6 +287,7 @@ class MediaGalleryPlugin extends obsidian.Plugin {
 
     // Rendered notes outlive the plugin: stop their galleries' observers and
     // timers, and give the media back their natural size.
+    this.clearSelection();
     this.galleries.forEach((child) => child.unload());
     this.documents().forEach((doc) => {
       doc.querySelectorAll('.callout-content[data-mg-ready]').forEach((content) => {
@@ -495,26 +553,202 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     }
   }
 
-  /* Ctrl/Cmd + drag moves an image within a gallery in reading view: the
-     drop rewrites the order of the embeds in the note, and Obsidian then
-     re-renders the gallery. `vertical` galleries (masonry, whose order runs
-     down the columns) drop above/below an image instead of left/right. */
-  setupReorder(child, content, sectionEl, ctx, vertical) {
+  /* Pointer editing of a gallery in reading view; each change rewrites the
+     embeds in the note, and Obsidian then re-renders the gallery.
+     - Ctrl/Cmd + drag moves an image (dragItem). `vertical` galleries
+       (masonry, whose order runs down the columns) drop above/below an
+       image instead of left/right.
+     - Alt + drag selects the images a box touches (Shift adds to the
+       selection), Alt + click toggles one (selectBox); a toolbar over the
+       selection offers "One row" (groupSelection). */
+  setupInteractions(child, content, sectionEl, ctx, vertical) {
     const onDown = (e) => {
-      if (e.button !== 0 || !(e.ctrlKey || e.metaKey)) return;
+      if (e.button !== 0 || !content.closest('.markdown-preview-view')) return;
+      if (e.altKey) {
+        e.preventDefault(); // no text selection or native image drag
+        this.selectBox(e, content, sectionEl, ctx);
+        return;
+      }
+      if (!(e.ctrlKey || e.metaKey)) return;
       const item = e.target.closest && e.target.closest('img, video');
-      if (!item || !content.contains(item) || !content.closest('.markdown-preview-view')) return;
-      e.preventDefault(); // no text selection or native image drag
+      if (!item || !content.contains(item)) return;
+      e.preventDefault();
       this.dragItem(e, item, content, sectionEl, ctx, vertical);
     };
     const onDragStart = (e) => {
-      if (e.ctrlKey || e.metaKey) e.preventDefault();
+      if (e.ctrlKey || e.metaKey || e.altKey) e.preventDefault();
     };
     content.addEventListener('pointerdown', onDown);
     content.addEventListener('dragstart', onDragStart);
     child.register(() => {
       content.removeEventListener('pointerdown', onDown);
       content.removeEventListener('dragstart', onDragStart);
+      // Re-rendered or unloaded: the selected elements are gone.
+      if (this.sel && this.sel.content === content) this.clearSelection();
+    });
+  }
+
+  /* Follow one Alt + press: a drag draws a box and selects the images it
+     touches (added to the current selection with Shift); a press without
+     movement toggles the image under it. Escape restores the selection. */
+  selectBox(down, content, sectionEl, ctx) {
+    const doc = content.ownerDocument;
+    const win = doc.defaultView || window;
+    const base = this.sel && this.sel.content === content ? new Set(this.sel.items) : new Set();
+    const box = doc.createElement('div');
+    box.className = 'mg-marquee';
+    let active = false;
+
+    const onMove = (e) => {
+      if (!active) {
+        if (Math.hypot(e.clientX - down.clientX, e.clientY - down.clientY) < 5) return;
+        active = true;
+        doc.body.appendChild(box);
+        doc.body.classList.add('mg-selecting');
+      }
+      const l = Math.min(down.clientX, e.clientX);
+      const r = Math.max(down.clientX, e.clientX);
+      const t = Math.min(down.clientY, e.clientY);
+      const b = Math.max(down.clientY, e.clientY);
+      Object.assign(box.style, { left: l + 'px', top: t + 'px', width: r - l + 'px', height: b - t + 'px' });
+      const picked = new Set(down.shiftKey ? base : []);
+      content.querySelectorAll('img, video').forEach((el) => {
+        const q = el.getBoundingClientRect();
+        if (q.right > l && q.left < r && q.bottom > t && q.top < b) picked.add(el);
+      });
+      this.setSelection(content, sectionEl, ctx, picked);
+    };
+
+    const finish = (cancel) => {
+      win.removeEventListener('pointermove', onMove, true);
+      win.removeEventListener('pointerup', onUp, true);
+      win.removeEventListener('pointercancel', onCancel, true);
+      win.removeEventListener('keydown', onKey, true);
+      box.remove();
+      doc.body.classList.remove('mg-selecting');
+      if (cancel) {
+        this.setSelection(content, sectionEl, ctx, base);
+      } else if (!active) {
+        const item = down.target.closest && down.target.closest('img, video');
+        if (item && content.contains(item)) {
+          const picked = new Set(base);
+          if (picked.has(item)) picked.delete(item);
+          else picked.add(item);
+          this.setSelection(content, sectionEl, ctx, picked);
+        }
+      }
+      // Keep the click that ends the press from opening a lightbox.
+      const swallow = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+      win.addEventListener('click', swallow, true);
+      win.setTimeout(() => win.removeEventListener('click', swallow, true), 0);
+    };
+    const onUp = () => finish(false);
+    const onCancel = () => finish(true);
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      finish(true);
+    };
+
+    win.addEventListener('pointermove', onMove, true);
+    win.addEventListener('pointerup', onUp, true);
+    win.addEventListener('pointercancel', onCancel, true);
+    win.addEventListener('keydown', onKey, true);
+  }
+
+  /* Show `items` (media of one gallery) as selected, with the toolbar over
+     them; an empty set clears the selection. One selection at a time. */
+  setSelection(content, sectionEl, ctx, items) {
+    if (this.sel && this.sel.content !== content) this.clearSelection();
+    if (!items.size) {
+      this.clearSelection();
+      return;
+    }
+    if (!this.sel) this.sel = this.openSelection(content, sectionEl, ctx);
+    this.sel.items.forEach((el) => {
+      if (!items.has(el)) el.classList.remove('mg-selected');
+    });
+    items.forEach((el) => el.classList.add('mg-selected'));
+    this.sel.items = items;
+    this.sel.place();
+  }
+
+  /* Selection state with its toolbar: a fixed element on <body> kept above
+     the selected images. Escape or a press anywhere else clears it. */
+  openSelection(content, sectionEl, ctx) {
+    const doc = content.ownerDocument;
+    const win = doc.defaultView || window;
+    const bar = doc.createElement('div');
+    bar.className = 'mg-toolbar';
+    const button = (label, title, onClick, cta) => {
+      const b = doc.createElement('button');
+      b.textContent = label;
+      b.title = title;
+      if (cta) b.classList.add('mod-cta');
+      b.addEventListener('click', onClick);
+      bar.appendChild(b);
+    };
+    button('One row', 'Put the selected images in a row of their own (between *** lines)',
+      () => this.groupSelection(), true);
+    button('✕', 'Clear the selection (Esc)', () => this.clearSelection());
+    doc.body.appendChild(bar);
+
+    const sel = { content, sectionEl, ctx, items: new Set() };
+    sel.place = () => {
+      let top = Infinity;
+      let left = Infinity;
+      sel.items.forEach((el) => {
+        const r = el.getBoundingClientRect();
+        top = Math.min(top, r.top);
+        left = Math.min(left, r.left);
+      });
+      const h = bar.offsetHeight;
+      const y = Math.min(Math.max(top - h - 6, 4), win.innerHeight - h - 4);
+      bar.style.top = y + 'px';
+      bar.style.left = Math.max(left, 4) + 'px';
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') this.clearSelection();
+    };
+    const onDown = (e) => {
+      if (!bar.contains(e.target) && !e.altKey) this.clearSelection();
+    };
+    win.addEventListener('scroll', sel.place, true);
+    win.addEventListener('resize', sel.place);
+    win.addEventListener('keydown', onKey, true);
+    win.addEventListener('pointerdown', onDown, true);
+    sel.close = () => {
+      win.removeEventListener('scroll', sel.place, true);
+      win.removeEventListener('resize', sel.place);
+      win.removeEventListener('keydown', onKey, true);
+      win.removeEventListener('pointerdown', onDown, true);
+      sel.items.forEach((el) => el.classList.remove('mg-selected'));
+      bar.remove();
+    };
+    return sel;
+  }
+
+  clearSelection() {
+    if (!this.sel) return;
+    this.sel.close();
+    this.sel = null;
+  }
+
+  /* "One row": gather the selected images between *** separators. */
+  groupSelection() {
+    const sel = this.sel;
+    if (!sel) return;
+    const items = Array.from(sel.items);
+    this.clearSelection();
+    this.rewriteGallery(sel.content, sel.sectionEl, sel.ctx, (block, units) => {
+      const picked = [...new Set(items.map((el) => units.indexOf(embedUnit(el))))]
+        .filter((i) => i >= 0)
+        .sort((a, b) => a - b);
+      return picked.length ? groupEmbeds(block, picked) : null;
     });
   }
 
@@ -613,29 +847,29 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     win.addEventListener('keydown', onKey, true);
   }
 
-  /* Move `item` before (or after) `target` in the note's source. The
-     rendered embeds are matched to the embeds in the gallery's text by
-     order; the section's text must still be what was rendered. Anything
-     that doesn't line up — the note changed meanwhile, the gallery is
-     nested, an embed renders as something else — leaves the note untouched,
-     with a notice (and the details in the console). */
-  async moveItem(content, sectionEl, ctx, item, target, after) {
-    // One rendered embed per ![[…]] / ![…](…) in the source: the outermost
-    // .internal-embed spans (a missing file, an audio clip or an embedded
-    // note still has one, with or without media inside), plus media that
-    // are not inside one (external images).
-    const units = Array.from(content.querySelectorAll('.internal-embed, img, video')).filter(
-      (el) => !(el.parentElement && el.parentElement.closest('.internal-embed'))
-    );
-    const unitOf = (el) => el.closest('.internal-embed') || el;
-    const from = units.indexOf(unitOf(item));
-    const to = units.indexOf(unitOf(target));
-    if (from < 0 || to < 0) return; // e.g. an image inside an embedded note
+  /* Move `item` before (or after) `target` in the note's source. */
+  moveItem(content, sectionEl, ctx, item, target, after) {
+    return this.rewriteGallery(content, sectionEl, ctx, (block, units) => {
+      const from = units.indexOf(embedUnit(item));
+      const to = units.indexOf(embedUnit(target));
+      if (from < 0 || to < 0) return null; // e.g. an image inside an embedded note
+      return moveEmbed(block, from, to, after);
+    });
+  }
 
+  /* Rewrite the gallery's lines in the note: edit(block, units) gets the
+     gallery's source lines and its rendered embeds (galleryUnits), whose
+     indices match findEmbeds(block), and returns new lines or null. The
+     section's text must still be what was rendered, and the counts must
+     agree; anything that doesn't line up — the note changed meanwhile, the
+     gallery is nested, an embed renders as something else — leaves the
+     note untouched, with a notice (and the details in the console). */
+  async rewriteGallery(content, sectionEl, ctx, edit) {
+    const units = galleryUnits(content);
     const info = ctx.getSectionInfo(sectionEl);
     const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
     if (!info || !(file instanceof obsidian.TFile)) {
-      new obsidian.Notice("Metal Media Gallery: images can only be reordered in the note's own reading view.");
+      new obsidian.Notice("Metal Media Gallery: galleries can only be edited in the note's own reading view.");
       return;
     }
 
@@ -660,20 +894,20 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       // Lines right after the quote that don't start with ">" still belong
       // to the callout (lazy continuation), so their images show in the
       // gallery. Writing them with "> " keeps them there wherever the move
-      // takes them; it doesn't change what is rendered.
+      // or grouping takes them; it doesn't change what is rendered.
       const block = top <= end
         ? lines.slice(top, end + 1).map((l) => (QUOTE.test(l) ? l : quoteLine(l)))
         : [];
       const embeds = findEmbeds(block);
       if (embeds.length !== units.length) {
         error = "couldn't match the images to the note's text (details in the console, Ctrl+Shift+I).";
-        console.warn('Metal Media Gallery: reorder found', embeds.length, 'embeds in the text but',
+        console.warn('Metal Media Gallery: found', embeds.length, 'embeds in the text but',
           units.length, 'rendered.', { text: embeds.map((e) => e.text), rendered: units });
         return data;
       }
-      const moved = moveEmbed(block, from, to, after);
-      if (!moved) return data;
-      lines.splice(top, block.length, ...moved);
+      const next = edit(block, units);
+      if (!next) return data;
+      lines.splice(top, block.length, ...next);
       return lines.join(eol);
     });
     if (error) new obsidian.Notice('Metal Media Gallery: ' + error);
@@ -722,7 +956,7 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     const content = this.claimContent(callout);
     if (!content) return;
     const child = this.galleryChild(callout, ctx);
-    this.setupReorder(child, content, sectionEl, ctx, true);
+    this.setupInteractions(child, content, sectionEl, ctx, true);
     this.watchAdded(child, content, () => decodeAsync(content));
     decodeAsync(content);
   }
@@ -733,7 +967,7 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     const content = this.claimContent(callout);
     if (!content) return;
     const child = this.galleryChild(callout, ctx);
-    this.setupReorder(child, content, sectionEl, ctx, false);
+    this.setupInteractions(child, content, sectionEl, ctx, false);
 
     // A large gallery fires many load/loadedmetadata events in quick
     // succession, and each full re-layout re-flows the whole gallery, so
@@ -1044,3 +1278,4 @@ module.exports = MediaGalleryPlugin;
 // Pure helpers, exposed for the tests in test/.
 module.exports.packRows = packRows;
 module.exports.moveEmbed = moveEmbed;
+module.exports.groupEmbeds = groupEmbeds;
