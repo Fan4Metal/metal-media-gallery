@@ -17,6 +17,7 @@ An Obsidian plugin that turns callouts into image galleries in reading view — 
 - **Wider than the text column** — the gallery breaks out beyond the readable line width (configurable).
 - **Drag to reorder** — Ctrl/Cmd + drag an image in reading view to move it; the note's text is updated.
 - **Select and group** — Alt + drag a box (or Alt + click) to select images, then put them in a row of their own with one click.
+- **File menu on right-click** — right-clicking an image in reading view gives the same menu as a link in the editor (open in a new tab / to the right / in a new window, rename, delete, reveal, copy path…).
 - **Lightbox-friendly** — pairs with the [Metal Image Viewer](https://github.com/Fan4Metal/metal-image-viewer) plugin for click-to-zoom.
 
 ## Usage

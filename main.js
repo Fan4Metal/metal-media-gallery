@@ -630,7 +630,8 @@ class MediaGalleryPlugin extends obsidian.Plugin {
        image instead of left/right.
      - Alt + drag selects the images a box touches (Shift adds to the
        selection), Alt + click toggles one (selectBox); a toolbar over the
-       selection offers "One row" (groupSelection). */
+       selection offers "One row" and "Ungroup" (editSelection).
+     - Right-click opens the file menu of an embedded image (fileMenu). */
   setupInteractions(child, content, sectionEl, ctx, vertical) {
     const onDown = (e) => {
       if (e.button !== 0 || !content.closest('.markdown-preview-view')) return;
@@ -648,14 +649,58 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     const onDragStart = (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) e.preventDefault();
     };
+    const onMenu = (e) => {
+      const item = e.target.closest && e.target.closest('img, video');
+      if (item && content.contains(item) && this.fileMenu(e, item, ctx.sourcePath)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
     content.addEventListener('pointerdown', onDown);
     content.addEventListener('dragstart', onDragStart);
+    content.addEventListener('contextmenu', onMenu, true); // before handlers on the embed itself
     child.register(() => {
       content.removeEventListener('pointerdown', onDown);
       content.removeEventListener('dragstart', onDragStart);
+      content.removeEventListener('contextmenu', onMenu, true);
       // Re-rendered or unloaded: the selected elements are gone.
       if (this.sel && this.sel.content === content) this.clearSelection();
     });
+  }
+
+  /* Show the menu Obsidian gives a link in the editor for the file an image
+     embeds: open in a new tab / to the right / in a new window, then the
+     file-menu items (rename, delete, reveal, copy path, other plugins').
+     Returns false, leaving the event alone, for media that aren't a vault
+     file (external images). */
+  fileMenu(evt, item, sourcePath) {
+    const embed = item.closest('.internal-embed');
+    const src = embed && embed.getAttribute('src');
+    if (!src) return false;
+    const link = src.split('|')[0].trim();
+    const file = this.app.metadataCache.getFirstLinkpathDest(obsidian.getLinkpath(link), sourcePath);
+    if (!(file instanceof obsidian.TFile)) return false;
+
+    const menu = new obsidian.Menu();
+    const ws = this.app.workspace;
+    // Obsidian's own link menu; it is internal, so check it is there and
+    // filled the menu (Menu.items is internal too).
+    if (typeof ws.handleLinkContextMenu === 'function') {
+      ws.handleLinkContextMenu(menu, link, sourcePath);
+      if (!Array.isArray(menu.items) || menu.items.length) {
+        menu.showAtMouseEvent(evt);
+        return true;
+      }
+    }
+    const open = (title, icon, where) =>
+      menu.addItem((i) => i.setTitle(title).setIcon(icon).onClick(() => ws.openLinkText(link, sourcePath, where)));
+    open('Open in new tab', 'file-plus', 'tab');
+    open('Open to the right', 'separator-vertical', 'split');
+    open('Open in new window', 'picture-in-picture-2', 'window');
+    menu.addSeparator();
+    ws.trigger('file-menu', menu, file, 'link-context-menu');
+    menu.showAtMouseEvent(evt);
+    return true;
   }
 
   /* Follow one Alt + press: a drag draws a box and selects the images it
