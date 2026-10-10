@@ -613,16 +613,24 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     win.addEventListener('keydown', onKey, true);
   }
 
-  /* Move `item` before (or after) `target` in the note's source. The DOM
-     items are matched to the embeds of the gallery block by order (checking
-     the link of internal embeds); anything that doesn't line up — the note
-     changed since it was rendered, an embedded note adds images, the
-     gallery is nested — leaves the note untouched, with a notice. */
+  /* Move `item` before (or after) `target` in the note's source. The
+     rendered embeds are matched to the embeds in the gallery's text by
+     order; the section's text must still be what was rendered. Anything
+     that doesn't line up — the note changed meanwhile, the gallery is
+     nested, an embed renders as something else — leaves the note untouched,
+     with a notice (and the details in the console). */
   async moveItem(content, sectionEl, ctx, item, target, after) {
-    const items = Array.from(content.querySelectorAll('img, video'));
-    const from = items.indexOf(item);
-    const to = items.indexOf(target);
-    if (from < 0 || to < 0) return;
+    // One rendered embed per ![[…]] / ![…](…) in the source: the outermost
+    // .internal-embed spans (a missing file, an audio clip or an embedded
+    // note still has one, with or without media inside), plus media that
+    // are not inside one (external images).
+    const units = Array.from(content.querySelectorAll('.internal-embed, img, video')).filter(
+      (el) => !(el.parentElement && el.parentElement.closest('.internal-embed'))
+    );
+    const unitOf = (el) => el.closest('.internal-embed') || el;
+    const from = units.indexOf(unitOf(item));
+    const to = units.indexOf(unitOf(target));
+    if (from < 0 || to < 0) return; // e.g. an image inside an embedded note
 
     const info = ctx.getSectionInfo(sectionEl);
     const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
@@ -630,11 +638,6 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       new obsidian.Notice("Metal Media Gallery: images can only be reordered in the note's own reading view.");
       return;
     }
-    const linkOf = (s) => s.split('|')[0].trim();
-    const links = items.map((el) => {
-      const embed = el.closest('.internal-embed');
-      return embed && embed.getAttribute('src') ? linkOf(embed.getAttribute('src')) : null;
-    });
 
     let error = null;
     await this.processFile(file, (data) => {
@@ -656,11 +659,10 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       while (bottom < info.lineEnd && QUOTE.test(lines[bottom + 1])) bottom++;
       const block = top <= info.lineEnd ? lines.slice(top, bottom + 1) : [];
       const embeds = findEmbeds(block);
-      const matches = embeds.length === items.length && embeds.every((e, i) =>
-        links[i] === null || (e.text.startsWith('![[') && linkOf(e.text.slice(3, -2)) === links[i])
-      );
-      if (!matches) {
-        error = "couldn't match the images to the note's text.";
+      if (embeds.length !== units.length) {
+        error = "couldn't match the images to the note's text (details in the console, Ctrl+Shift+I).";
+        console.warn('Metal Media Gallery: reorder found', embeds.length, 'embeds in the text but',
+          units.length, 'rendered.', { text: embeds.map((e) => e.text), rendered: units });
         return data;
       }
       const moved = moveEmbed(block, from, to, after);

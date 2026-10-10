@@ -116,8 +116,9 @@ target's on-screen box, because anything drawn inside the gallery gets clipped a
 edges by an ancestor), and the drop calls `moveItem`. That rewrites the note
 through `Vault.process` (read/modify fallback before 1.1): it re-reads the section via
 `ctx.getSectionInfo(sectionEl)` — so the post processor's `el` is passed down to the setup
-functions — checks the file still matches what was rendered, matches DOM items to the gallery
-block's embeds by order (and by link for internal embeds), and applies `moveEmbed`. Any
+functions — checks the file still matches what was rendered, matches the rendered embeds (outermost
+`.internal-embed` spans plus bare media — so a missing file or audio clip still counts) to the
+gallery block's embeds by order, and applies `moveEmbed`. Any
 mismatch leaves the file untouched and shows a notice.
 
 ## Manifest / release
