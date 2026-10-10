@@ -38,6 +38,13 @@ function quoteLine(line) {
   return line.trim().length ? '> ' + line : '>';
 }
 
+/* Decode a gallery's images off the main thread: a row of camera-sized
+   photos scrolling into view otherwise stalls the frame while each one is
+   decoded. */
+function decodeAsync(content) {
+  content.querySelectorAll('img:not([decoding])').forEach((img) => (img.decoding = 'async'));
+}
+
 const DEFAULT_SETTINGS = {
   rowHeight: 220,   // [!gallery] target row height (px)
   columns: 3,       // [!gallery-masonry] column count (maximum)
@@ -91,10 +98,8 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     this.registerMarkdownPostProcessor((el, ctx) => {
       const find = (sel) => (el.matches(sel) ? [el] : Array.from(el.querySelectorAll(sel)));
       find('.callout[data-callout="gallery"]').forEach((c) => this.setupJustified(c, ctx));
-      // Masonry is pure CSS; it only shares the async decoding (see setupJustified).
-      find('.callout[data-callout="gallery-masonry"]').forEach((c) =>
-        c.querySelectorAll('img').forEach((img) => (img.decoding = 'async'))
-      );
+      // Masonry is laid out by CSS; it only shares the async decoding.
+      find('.callout[data-callout="gallery-masonry"]').forEach((c) => this.setupMasonry(c, ctx));
     });
   }
 
@@ -326,19 +331,50 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     }
   }
 
-  /* Wire up one justified gallery: mark it, then (re)layout on load & resize.
-     The ResizeObserver is tied to a MarkdownRenderChild so Obsidian disconnects
-     it when the rendered section is discarded; otherwise every re-render would
-     leave an observer (and the whole old DOM it references) alive. */
-  setupJustified(callout, ctx) {
+  /* The content of a gallery callout not set up yet, now marked as set up,
+     or null. */
+  claimContent(callout) {
     const content = callout.querySelector(':scope > .callout-content');
-    if (!content || content.dataset.mgReady) return;
+    if (!content || content.dataset.mgReady) return null;
     content.dataset.mgReady = '1';
+    return content;
+  }
 
+  /* A render child for one gallery. Observers and listeners registered on it
+     are released when Obsidian discards the rendered section (otherwise every
+     re-render would leave them, and the whole old DOM, alive) or when the
+     plugin unloads (see onunload). */
+  galleryChild(callout, ctx) {
     const child = new obsidian.MarkdownRenderChild(callout);
     this.galleries.add(child);
     child.register(() => this.galleries.delete(child));
-    const imgs = Array.from(content.querySelectorAll('img, video'));
+    ctx.addChild(child);
+    return child;
+  }
+
+  /* Call fn whenever nodes are added under content. Obsidian loads ![[embeds]]
+     after the post processors have run, so when a gallery is set up its img
+     elements usually don't exist yet; they arrive one by one later. */
+  watchAdded(child, content, fn) {
+    const mo = new MutationObserver(fn);
+    mo.observe(content, { childList: true, subtree: true });
+    child.register(() => mo.disconnect());
+  }
+
+  setupMasonry(callout, ctx) {
+    const content = this.claimContent(callout);
+    if (!content) return;
+    const child = this.galleryChild(callout, ctx);
+    this.watchAdded(child, content, () => decodeAsync(content));
+    decodeAsync(content);
+  }
+
+  /* Wire up one justified gallery: (re)layout as media arrive and load, and
+     on resize. */
+  setupJustified(callout, ctx) {
+    const content = this.claimContent(callout);
+    if (!content) return;
+    const child = this.galleryChild(callout, ctx);
 
     // A large gallery fires many load/loadedmetadata events in quick
     // succession, and each full re-layout re-flows the whole gallery, so
@@ -364,18 +400,31 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       relayoutBatched();
     };
 
-    imgs.forEach((img) => {
-      if (img.tagName === 'IMG') {
-        // Decode off the main thread: a row of camera-sized photos scrolling
-        // into view otherwise stalls the frame while each one is decoded.
-        img.decoding = 'async';
-        if (img.complete && img.naturalWidth) return;
-        img.addEventListener('load', onMedia);
-        img.addEventListener('error', onMedia);
-      } else {
-        img.addEventListener('loadedmetadata', onMedia);
-      }
+    // These events don't bubble, but listening in the capture phase on the
+    // content catches them for every item, including ones added later.
+    for (const type of ['load', 'error', 'loadedmetadata']) {
+      content.addEventListener(type, onMedia, true);
+      child.register(() => content.removeEventListener(type, onMedia, true));
+    }
+
+    // Newly added items are sized in the next frame, before it is painted,
+    // so they never show at their natural size; items arriving within one
+    // frame share a layout.
+    const win = content.ownerDocument.defaultView || window;
+    let frame = 0;
+    const relayoutNextFrame = () => {
+      if (frame) return;
+      frame = win.requestAnimationFrame(() => {
+        frame = 0;
+        this.layout(content);
+      });
+    };
+    child.register(() => win.cancelAnimationFrame(frame));
+    this.watchAdded(child, content, () => {
+      decodeAsync(content);
+      relayoutNextFrame();
     });
+    decodeAsync(content);
 
     // ResizeObserver is already throttled to at most one notification per
     // frame, so layout runs synchronously here without the O(n²) risk. It
@@ -390,7 +439,6 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     });
     ro.observe(content);
     child.register(() => ro.disconnect());
-    ctx.addChild(child);
 
     this.layout(content);
   }

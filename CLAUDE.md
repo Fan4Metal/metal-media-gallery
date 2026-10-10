@@ -50,7 +50,7 @@ in the repo root, never edit the deployed copy.
 The plugin's two gallery modes are handled by completely different mechanisms:
 
 - **`[!gallery-masonry]` is pure CSS** — the CSS `columns` shorthand (min width + max count) in
-  `styles.css`. No JS involved.
+  `styles.css`. JS only marks its images `decoding="async"`.
 - **`[!gallery]` (justified) is computed in JS** — CSS alone can't fill rows edge-to-edge
   without cropping, so `main.js` sizes each image inline.
 
@@ -59,8 +59,11 @@ The justified pipeline (`main.js`):
 1. `registerMarkdownPostProcessor` finds `.callout[data-callout="gallery"]` in each rendered
    block and calls `setupJustified`.
 2. `setupJustified` marks the callout (`data-mgReady` guards against re-processing), then wires
-   a `ResizeObserver` on the content plus `load` / `loadedmetadata` listeners on each
-   `img`/`video`, so `layout` re-runs on pane resize and as media dimensions become known.
+   a `ResizeObserver` on the content, capture-phase `load` / `error` / `loadedmetadata`
+   listeners on the content and a `MutationObserver` for added nodes, so `layout` re-runs on
+   pane resize, as media dimensions become known, and as items appear — Obsidian inserts the
+   `img` of a `![[embed]]` only after the post processors ran, so a gallery usually starts
+   empty. Added items are laid out in the next animation frame (before they are painted).
    Load-driven re-layouts are coalesced into 100 ms windows and skipped when the measured
    ratio matches what the layout already assumed (from the per-URL cache); `layout` itself only
    rewrites the inline size of items whose size changed. Images get `decoding="async"`, and the
