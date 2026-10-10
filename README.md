@@ -56,7 +56,7 @@ In `[!gallery]`, a `***` line ends a group of images: the group is packed on its
 
 A short group (two to four images) becomes a single row; a longer one is split into several full rows. A full-width row of portraits can get tall — **Max row height** caps it. Use `***`, not `---`: right under an image line, `---` turns that line into a heading. Masonry galleries ignore the separator.
 
-The **Insert row separator** command (also in the ribbon menu) adds `> ***` after the cursor's line; with lines selected inside a gallery, it puts a separator before and after them, so the selection becomes a row of its own.
+The **Insert row separator** command (also in the ribbon menu) adds `> ***` after the cursor's line (or turns the cursor's empty `>` line into it); with lines selected inside a gallery, it puts a separator before and after them, so the selection becomes a row of its own.
 
 > **Tip:** for a single image, just embed it normally (outside a callout) — galleries are for groups.
 

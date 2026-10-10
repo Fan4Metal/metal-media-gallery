@@ -27,9 +27,10 @@ function measureAr(el) {
   return h > 0 ? w / h : 0;
 }
 
-/* Markdown lines, for the editor commands: any blockquote line, the first
-   line of a gallery callout, and a *** row separator inside one. */
+/* Markdown lines, for the editor commands: any blockquote line, an empty
+   one, the first line of a gallery callout, and a *** row separator. */
 const QUOTE = /^\s*>/;
+const EMPTY_QUOTE = /^\s*>\s*$/;
 const GALLERY_HEADER = /^\s*>\s*\[!gallery(-masonry)?\]/i;
 const ROW_SEPARATOR = /^\s*>\s*\*\s*\*\s*\*[\s*]*$/;
 
@@ -378,10 +379,12 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     }
   }
 
-  /* Insert a "> ***" row separator after the cursor's line in a gallery.
-     With a selection, separators go before and after the selected lines, so
-     they become a group of their own (a short one is a single full-width
-     row); none is added where a separator or the header already is. */
+  /* Insert a "> ***" row separator in a gallery: on the cursor's line if it
+     is an empty ">" line, otherwise on a new line after it. With a selection,
+     separators go before and after the selected lines, so they become a
+     group of their own (a short one is a single full-width row), again
+     taking over an empty ">" line there; none is added where a separator or
+     the header already is. */
   insertSeparator(editor) {
     const { fromLine, toLine } = this.selectedLines(editor);
     const top = this.galleryTop(editor, fromLine);
@@ -392,16 +395,23 @@ class MediaGalleryPlugin extends obsidian.Plugin {
 
     const sep = '> ***';
     const endOf = (n) => ({ line: n, ch: editor.getLine(n).length });
+    const isEmpty = (n) => n > top && n <= editor.lastLine() && EMPTY_QUOTE.test(editor.getLine(n));
+    const replaceLine = (n) => editor.replaceRange(sep, { line: n, ch: 0 }, endOf(n));
+
     if (!editor.somethingSelected()) {
-      editor.replaceRange('\n' + sep, endOf(fromLine));
-      editor.setCursor(endOf(fromLine + 1));
+      const line = isEmpty(fromLine) ? fromLine : fromLine + 1;
+      if (line === fromLine) replaceLine(line);
+      else editor.replaceRange('\n' + sep, endOf(fromLine));
+      editor.setCursor(endOf(line));
       return;
     }
     // The one after first, so fromLine stays valid for the one before.
-    if (toLine === editor.lastLine() || !ROW_SEPARATOR.test(editor.getLine(toLine + 1))) {
+    if (isEmpty(toLine + 1)) replaceLine(toLine + 1);
+    else if (toLine === editor.lastLine() || !ROW_SEPARATOR.test(editor.getLine(toLine + 1))) {
       editor.replaceRange('\n' + sep, endOf(toLine));
     }
-    if (fromLine > top + 1 && !ROW_SEPARATOR.test(editor.getLine(fromLine - 1))) {
+    if (isEmpty(fromLine - 1)) replaceLine(fromLine - 1);
+    else if (fromLine > top + 1 && !ROW_SEPARATOR.test(editor.getLine(fromLine - 1))) {
       editor.replaceRange(sep + '\n', { line: fromLine, ch: 0 });
     }
   }
