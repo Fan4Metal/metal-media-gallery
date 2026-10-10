@@ -56,6 +56,8 @@ In `[!gallery]`, a `***` line ends a group of images: the group is packed on its
 
 A short group (two to four images) becomes a single row; a longer one is split into several full rows. A full-width row of portraits can get tall — **Max row height** caps it. Use `***`, not `---`: right under an image line, `---` turns that line into a heading. Masonry galleries ignore the separator.
 
+The **Insert row separator** command (also in the ribbon menu) adds `> ***` after the cursor's line; with lines selected inside a gallery, it puts a separator before and after them, so the selection becomes a row of its own.
+
 > **Tip:** for a single image, just embed it normally (outside a callout) — galleries are for groups.
 
 ### Quick-wrap command
@@ -65,14 +67,15 @@ Instead of typing the callout by hand, select the image lines and run a command:
 - **Metal Media Gallery: Wrap selection in gallery callout**
 - **Metal Media Gallery: Wrap selection in masonry gallery callout**
 - **Metal Media Gallery: Remove gallery callout wrapping**
+- **Metal Media Gallery: Insert row separator (\*\*\*) in gallery** — see [Keeping images on one row](#keeping-images-on-one-row)
 
 Open the command palette (`Ctrl/Cmd+P`) and run one, or assign a hotkey in **Settings → Hotkeys**. Each selected line gets a `> ` prefix and a `> [!gallery]` header is added on top. With no selection, it wraps the current line. Commands always act on whole lines, even if the selection starts or ends mid-line.
 
 > **Adding to an existing gallery.** If the selection includes lines that already belong to a gallery, or sits right above or below one, the new lines are merged into it (they just get a `> ` prefix) — no second header is added, so you never get a nested gallery. The header stays on the first line, and the type is taken from it. A selection spanning two galleries merges them into one. A fresh `> [!gallery]` is only created when the selection does *not* touch another gallery.
 
-**Unwrap** removes the `[!gallery]` header and strips one level of `> ` from the whole gallery — place the cursor anywhere inside it, or select lines to unwrap every gallery they touch. Other callouts and quotes are left alone.
+**Unwrap** removes the `[!gallery]` header and strips one level of `> ` from the whole gallery (row separators are dropped too) — place the cursor anywhere inside it, or select lines to unwrap every gallery they touch. Other callouts and quotes are left alone.
 
-There is also a **ribbon button** (left sidebar, grid icon): select your image lines, click it, and pick *Justified*, *Masonry*, or *Remove gallery*. Toggle it off in **Settings → Metal Media Gallery → Ribbon button**.
+There is also a **ribbon button** (left sidebar, grid icon): select your image lines, click it, and pick *Justified*, *Masonry*, *Row separator*, or *Remove gallery*. Toggle it off in **Settings → Metal Media Gallery → Ribbon button**.
 
 ## Settings
 

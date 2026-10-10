@@ -27,10 +27,11 @@ function measureAr(el) {
   return h > 0 ? w / h : 0;
 }
 
-/* Markdown lines, for the editor commands: any blockquote line, and the
-   first line of a gallery callout. */
+/* Markdown lines, for the editor commands: any blockquote line, the first
+   line of a gallery callout, and a *** row separator inside one. */
 const QUOTE = /^\s*>/;
 const GALLERY_HEADER = /^\s*>\s*\[!gallery(-masonry)?\]/i;
+const ROW_SEPARATOR = /^\s*>\s*\*\s*\*\s*\*[\s*]*$/;
 
 /* A line moved into a callout; blank lines become a bare ">" so the
    blockquote stays one block. */
@@ -91,6 +92,11 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       id: 'unwrap-gallery',
       name: 'Remove gallery callout wrapping',
       editorCallback: (editor) => this.unwrapSelection(editor),
+    });
+    this.addCommand({
+      id: 'insert-row-separator',
+      name: 'Insert row separator (***) in gallery',
+      editorCallback: (editor) => this.insertSeparator(editor),
     });
 
     this.ribbonEl = null;
@@ -190,6 +196,10 @@ class MediaGalleryPlugin extends obsidian.Plugin {
         );
         menu.addItem((i) =>
           i.setTitle('Masonry gallery').setIcon('align-start-vertical').onClick(() => this.wrapActive('gallery-masonry'))
+        );
+        menu.addItem((i) =>
+          i.setTitle('Row separator (***)').setIcon('minus')
+            .onClick(() => this.withActiveEditor((editor) => this.insertSeparator(editor)))
         );
         menu.addSeparator();
         menu.addItem((i) =>
@@ -302,8 +312,8 @@ class MediaGalleryPlugin extends obsidian.Plugin {
   }
 
   /* Unwrap every gallery callout that the selection (or the cursor's line)
-     touches: drop its header and strip one level of "> " from all its lines.
-     Other quotes and callouts are left alone. */
+     touches: drop its header and row separators, and strip one level of
+     "> " from all its lines. Other quotes and callouts are left alone. */
   unwrapSelection(editor) {
     const { fromLine, toLine } = this.selectedLines(editor);
     const blocks = [];
@@ -323,13 +333,44 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     for (const { top, bottom } of blocks.reverse()) {
       const lines = [];
       for (let n = top + 1; n <= bottom; n++) {
-        lines.push(editor.getLine(n).replace(/^(\s*)>\s?/, '$1'));
+        const line = editor.getLine(n);
+        if (ROW_SEPARATOR.test(line)) continue; // would become a horizontal rule
+        lines.push(line.replace(/^(\s*)>\s?/, '$1'));
       }
       editor.replaceRange(
         lines.join('\n'),
         { line: top, ch: 0 },
         { line: bottom, ch: editor.getLine(bottom).length }
       );
+    }
+  }
+
+  /* Insert a "> ***" row separator after the cursor's line in a gallery.
+     With a selection, separators go before and after the selected lines, so
+     they become a group of their own (a short one is a single full-width
+     row); none is added where a separator or the header already is. */
+  insertSeparator(editor) {
+    const { fromLine, toLine } = this.selectedLines(editor);
+    const inQuote = QUOTE.test(editor.getLine(fromLine));
+    const top = inQuote ? this.quoteTop(editor, fromLine) : -1;
+    if (!inQuote || !GALLERY_HEADER.test(editor.getLine(top)) || this.quoteBottom(editor, fromLine) < toLine) {
+      new obsidian.Notice('Metal Media Gallery: put the cursor or selection inside a gallery callout.');
+      return;
+    }
+
+    const sep = '> ***';
+    const endOf = (n) => ({ line: n, ch: editor.getLine(n).length });
+    if (!editor.somethingSelected()) {
+      editor.replaceRange('\n' + sep, endOf(fromLine));
+      editor.setCursor(endOf(fromLine + 1));
+      return;
+    }
+    // The one after first, so fromLine stays valid for the one before.
+    if (toLine === editor.lastLine() || !ROW_SEPARATOR.test(editor.getLine(toLine + 1))) {
+      editor.replaceRange('\n' + sep, endOf(toLine));
+    }
+    if (fromLine > top + 1 && !ROW_SEPARATOR.test(editor.getLine(fromLine - 1))) {
+      editor.replaceRange(sep + '\n', { line: fromLine, ch: 0 });
     }
   }
 
