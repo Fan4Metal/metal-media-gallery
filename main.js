@@ -89,9 +89,12 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     this.applyRibbon();
 
     this.registerMarkdownPostProcessor((el, ctx) => {
-      const sel = '.callout[data-callout="gallery"]';
-      const callouts = el.matches(sel) ? [el] : Array.from(el.querySelectorAll(sel));
-      callouts.forEach((c) => this.setupJustified(c, ctx));
+      const find = (sel) => (el.matches(sel) ? [el] : Array.from(el.querySelectorAll(sel)));
+      find('.callout[data-callout="gallery"]').forEach((c) => this.setupJustified(c, ctx));
+      // Masonry is pure CSS; it only shares the async decoding (see setupJustified).
+      find('.callout[data-callout="gallery-masonry"]').forEach((c) =>
+        c.querySelectorAll('img').forEach((img) => (img.decoding = 'async'))
+      );
     });
   }
 
