@@ -41,7 +41,10 @@ class MediaGalleryPlugin extends obsidian.Plugin {
   async onload() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     // Sliders call saveSettings on every tick; write data.json once they settle.
-    this.persistSettings = obsidian.debounce(() => this.saveData(this.settings), 500, true);
+    // The pending flag lets onunload flush a write without Debouncer.run(),
+    // which only exists since Obsidian 1.4.4.
+    this.settingsDirty = false;
+    this.persistSettings = obsidian.debounce(() => this.writeSettings(), 500, true);
     // Aspect ratio by image URL. A note re-rendered or re-opened lays out
     // correctly on the first pass instead of jumping once the images load.
     this.arCache = new Map();
@@ -116,11 +119,20 @@ class MediaGalleryPlugin extends obsidian.Plugin {
   }
 
   onunload() {
-    this.persistSettings.run(); // flush a pending write
+    if (this.settingsDirty) { // flush a pending write
+      this.persistSettings.cancel();
+      this.writeSettings();
+    }
     this.removeCssVars();
   }
 
+  writeSettings() {
+    this.settingsDirty = false;
+    return this.saveData(this.settings);
+  }
+
   saveSettings() {
+    this.settingsDirty = true;
     this.persistSettings();
     this.applyCssVars();
     // Re-layout every visible justified gallery so changes show immediately.
