@@ -13,6 +13,9 @@
      light ones), which washes out the media. Show the pixels as they are. */
   --callout-blend-mode: normal;
   mix-blend-mode: normal;
+  /* Callouts clip their overflow; with the chrome gone nothing needs it, and
+     it would cut off the drop bar beside the first or last image of a row. */
+  overflow: visible;
 }
 .markdown-preview-view .callout[data-callout^="gallery"] > .callout-title {
   display: none;
