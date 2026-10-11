@@ -16,7 +16,7 @@ An Obsidian plugin that turns callouts into image galleries in reading view — 
 - **Reflows** on pane resize and as images load.
 - **Wider than the text column** — the gallery breaks out beyond the readable line width (configurable).
 - **Drag to reorder** — Ctrl/Cmd + drag an image in reading view to move it; the note's text is updated.
-- **Select and group** — Alt + drag a box (or Alt + click) to select images, then put them in a row of their own with one click.
+- **Select, group, remove** — Alt + drag a box (or Alt + click) to select images, then put them in a row of their own, or take them out of the gallery, with one click.
 - **File menu on right-click** — right-clicking an image in reading view gives the same menu as a link in the editor (open in a new tab / to the right / in a new window, rename, delete, reveal, copy path…).
 - **Lightbox-friendly** — pairs with the [Metal Image Viewer](https://github.com/Fan4Metal/metal-image-viewer) plugin for click-to-zoom.
 
@@ -69,12 +69,13 @@ If the gallery can't be matched to the note's text — the note changed in the m
 
 Lines placed right after a gallery without a `>` (and without a blank line in between) still belong to it in Markdown, so their images show in the gallery; reordering rewrites them with a `> ` prefix, which changes nothing visible. To keep images outside a gallery, leave a blank line after it.
 
-### Selecting images and putting them in one row
+### Selecting images: one row, ungroup, remove
 
 In reading view, hold **Alt** (**Option** on macOS) and drag a box over a gallery: every image it touches is selected (outlined). **Shift + Alt** + drag adds to the selection, and **Alt + click** adds or removes a single image, so scattered images can be picked too. A small toolbar appears above the selection:
 
 - **One row** gathers the selected images where the first of them is, one per line, between `***` separators — they become a group of their own, usually a single full-width row (see [Keeping images on one row](#keeping-images-on-one-row)). Images that were elsewhere move next to the first one.
 - **Ungroup** removes the `***` separators around the groups the selected images are in, returning them to the automatic flow.
+- **Remove** (or the **Delete** / **Backspace** key) takes the selected images out of the gallery: their `![[…]]` embeds are deleted from the note, the files themselves stay in the vault. Lines left empty, and `***` separators left doubled, go too.
 - **✕** (or **Esc**, or a click anywhere else) clears the selection.
 
 > **Tip:** for a single image, just embed it normally (outside a callout) — galleries are for groups.

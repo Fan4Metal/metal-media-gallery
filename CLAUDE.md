@@ -24,7 +24,7 @@ reads `manifest.json` from the repository root to publish and update the plugin.
 ## Deploy / test loop
 
 Rendering is verified by hand in Obsidian. The pure pieces — the row-packing function
-`packRows` and the source rewrites `moveEmbed` / `groupEmbeds` / `ungroupEmbeds` — have a `node:test` suite (no dependencies; `main.js` is loaded with a stubbed
+`packRows` and the source rewrites `moveEmbed` / `groupEmbeds` / `ungroupEmbeds` / `removeEmbeds` — have a `node:test` suite (no dependencies; `main.js` is loaded with a stubbed
 `obsidian` module):
 
 ```powershell
@@ -115,8 +115,9 @@ drag with window-level capture listeners (class `mg-dragging` on the image, body
 target's on-screen box, because anything drawn inside the gallery gets clipped at the row
 edges by an ancestor), and the drop calls `moveItem`. Alt + pointerdown goes to `selectBox` instead: a fixed
 `.mg-marquee` box (or an Alt + click toggle) builds the selection — `this.sel`, one gallery at
-a time, with a fixed `.mg-toolbar` kept above it (`openSelection`); its *One row* / *Ungroup* buttons
-call `editSelection` with `groupEmbeds` / `ungroupEmbeds`. A right-click on an embedded image
+a time, with a fixed `.mg-toolbar` kept above it (`openSelection`); its *One row* / *Ungroup* / *Remove* buttons
+call `editSelection` with `groupEmbeds` / `ungroupEmbeds` / `removeEmbeds` (*Remove* also on the Delete key,
+via `removeSelection`, which shows a notice when the note was rewritten). A right-click on an embedded image
 opens the file's link menu (`fileMenu`: the internal `workspace.handleLinkContextMenu` when
 present, else "Open in …" items plus the public `file-menu` event). Both gestures suppress native
 scrolling, so `scrollWhileDragging` provides it: the wheel (captured, also beating Ctrl+wheel
@@ -127,7 +128,7 @@ through `Vault.process` (read/modify fallback before 1.1): it re-reads the secti
 functions — checks the file still matches what was rendered, matches the rendered embeds (outermost
 `.internal-embed` spans plus bare media — so a missing file or audio clip still counts) to the
 gallery block's embeds by order (`galleryUnits` / `embedUnit`), and applies the edit —
-`moveEmbed`, `groupEmbeds` or `ungroupEmbeds`, all pure and tested. Lazy-continuation lines are given a `> `
+`moveEmbed`, `groupEmbeds`, `ungroupEmbeds` or `removeEmbeds`, all pure and tested. Lazy-continuation lines are given a `> `
 prefix first. Any
 mismatch leaves the file untouched and shows a notice.
 

@@ -117,8 +117,31 @@ function groupEmbeds(lines, picked) {
     if (rest.trim()) out.push(prefix + rest.trim());
   });
 
-  return out.filter((line, n) => !ROW_SEPARATOR.test(line) ||
-    !(ROW_SEPARATOR.test(out[n - 1] || '') || GALLERY_HEADER.test(out[n - 1] || '')));
+  return dropExtraSeparators(out);
+}
+
+/* Drop a *** separator that follows another one or the header: an empty
+   group between them would render as nothing. */
+function dropExtraSeparators(lines) {
+  return lines.filter((line, n) => !ROW_SEPARATOR.test(line) ||
+    !(ROW_SEPARATOR.test(lines[n - 1] || '') || GALLERY_HEADER.test(lines[n - 1] || '')));
+}
+
+/* Remove the `picked` embeds (indices into findEmbeds(lines)) from the
+   gallery's lines; the files they embed are not touched. A line left with
+   nothing but its ">" goes too, and so do the *** separators that end up
+   doubled or right under the header. Returns the new lines. */
+function removeEmbeds(lines, picked) {
+  const embeds = findEmbeds(lines);
+  const pick = new Set(picked);
+  const out = [];
+  lines.forEach((line, n) => {
+    // Right to left so earlier offsets hold.
+    const cuts = embeds.filter((e, i) => e.line === n && pick.has(i)).reverse();
+    for (const e of cuts) line = cutSpan(line, e.start, e.end);
+    if (!cuts.length || !EMPTY_QUOTE.test(line)) out.push(line);
+  });
+  return dropExtraSeparators(out);
 }
 
 /* Remove the *** separators that bound the groups the `picked` embeds
@@ -630,7 +653,8 @@ class MediaGalleryPlugin extends obsidian.Plugin {
        image instead of left/right.
      - Alt + drag selects the images a box touches (Shift adds to the
        selection), Alt + click toggles one (selectBox); a toolbar over the
-       selection offers "One row" and "Ungroup" (editSelection).
+       selection offers "One row", "Ungroup" and "Remove" (editSelection),
+       the last also on the Delete / Backspace key.
      - Right-click opens the file menu of an embedded image (fileMenu). */
   setupInteractions(child, content, sectionEl, ctx, vertical) {
     const onDown = (e) => {
@@ -827,6 +851,8 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       () => this.editSelection(groupEmbeds), true);
     button('Ungroup', 'Remove the *** lines around the groups of the selected images',
       () => this.editSelection(ungroupEmbeds));
+    button('Remove', 'Take the selected images out of the gallery (Delete); the files stay in the vault',
+      () => this.removeSelection());
     button('✕', 'Clear the selection (Esc)', () => this.clearSelection());
     doc.body.appendChild(bar);
 
@@ -846,6 +872,11 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     };
     const onKey = (e) => {
       if (e.key === 'Escape') this.clearSelection();
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const t = e.target;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      e.preventDefault();
+      this.removeSelection();
     };
     const onDown = (e) => {
       if (!bar.contains(e.target) && !e.altKey) this.clearSelection();
@@ -871,14 +902,25 @@ class MediaGalleryPlugin extends obsidian.Plugin {
     this.sel = null;
   }
 
+  /* Take the selected images out of the gallery: their embeds leave the
+     note, the files stay. Says so, since the images just vanish. */
+  async removeSelection() {
+    const count = this.sel ? this.sel.items.size : 0;
+    if (await this.editSelection(removeEmbeds)) {
+      new obsidian.Notice('Metal Media Gallery: removed ' + count + (count === 1 ? ' image' : ' images') +
+        ' from the gallery; the ' + (count === 1 ? 'file is' : 'files are') + ' still in the vault.');
+    }
+  }
+
   /* Apply edit(block, picked) to the gallery of the selection, where picked
-     are the selected images' embed indices, ascending; then clear it. */
+     are the selected images' embed indices, ascending; then clear it.
+     Resolves to whether the note was rewritten. */
   editSelection(edit) {
     const sel = this.sel;
-    if (!sel) return;
+    if (!sel) return Promise.resolve(false);
     const items = Array.from(sel.items);
     this.clearSelection();
-    this.rewriteGallery(sel.content, sel.sectionEl, sel.ctx, (block, units) => {
+    return this.rewriteGallery(sel.content, sel.sectionEl, sel.ctx, (block, units) => {
       const picked = [...new Set(items.map((el) => units.indexOf(embedUnit(el))))]
         .filter((i) => i >= 0)
         .sort((a, b) => a - b);
@@ -1053,17 +1095,19 @@ class MediaGalleryPlugin extends obsidian.Plugin {
      section's text must still be what was rendered, and the counts must
      agree; anything that doesn't line up — the note changed meanwhile, the
      gallery is nested, an embed renders as something else — leaves the
-     note untouched, with a notice (and the details in the console). */
+     note untouched, with a notice (and the details in the console).
+     Resolves to whether the note was rewritten. */
   async rewriteGallery(content, sectionEl, ctx, edit) {
     const units = galleryUnits(content);
     const info = ctx.getSectionInfo(sectionEl);
     const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
     if (!info || !(file instanceof obsidian.TFile)) {
       new obsidian.Notice("Metal Media Gallery: galleries can only be edited in the note's own reading view.");
-      return;
+      return false;
     }
 
     let error = null;
+    let rewrote = false;
     await this.processFile(file, (data) => {
       const eol = data.includes('\r\n') ? '\r\n' : '\n';
       const lines = data.split(/\r?\n/);
@@ -1098,9 +1142,11 @@ class MediaGalleryPlugin extends obsidian.Plugin {
       const next = edit(block, units);
       if (!next) return data;
       lines.splice(top, block.length, ...next);
+      rewrote = true;
       return lines.join(eol);
     });
     if (error) new obsidian.Notice('Metal Media Gallery: ' + error);
+    return rewrote && !error;
   }
 
   /* Rewrite a file through fn. Vault.process (atomic) needs Obsidian 1.1. */
@@ -1470,3 +1516,4 @@ module.exports.packRows = packRows;
 module.exports.moveEmbed = moveEmbed;
 module.exports.groupEmbeds = groupEmbeds;
 module.exports.ungroupEmbeds = ungroupEmbeds;
+module.exports.removeEmbeds = removeEmbeds;

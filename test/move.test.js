@@ -1,8 +1,9 @@
 'use strict';
 
 // Run with:  node --test
-// Exercises moveEmbed and groupEmbeds, the source rewrites behind Ctrl+drag
-// reordering and the "One row" / "Ungroup" actions on a selection.
+// Exercises moveEmbed, groupEmbeds, ungroupEmbeds and removeEmbeds, the
+// source rewrites behind Ctrl+drag reordering and the "One row" / "Ungroup" /
+// "Remove" actions on a selection.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -15,7 +16,7 @@ Module._load = function (request, ...rest) {
   if (request === 'obsidian') return { Plugin: class {}, PluginSettingTab: class {} };
   return origLoad.call(this, request, ...rest);
 };
-const { moveEmbed, groupEmbeds, ungroupEmbeds } = require('../main.js');
+const { moveEmbed, groupEmbeds, ungroupEmbeds, removeEmbeds } = require('../main.js');
 Module._load = origLoad;
 
 const H = '> [!gallery]';
@@ -110,4 +111,38 @@ test('ungroup in the first group removes only the separator below it', () => {
 
 test('ungroup with no separators changes nothing', () => {
   assert.equal(ungroupEmbeds(G, [1, 2]), null);
+});
+
+/* removeEmbeds: the "Remove" action on selected images. */
+
+test('a lone embed takes its line along', () => {
+  assert.deepEqual(removeEmbeds(G, [1]), [H, '> ![[a]]', '> ![[c]]', '> ![[d]]']);
+  assert.deepEqual(removeEmbeds(G, [0, 3]), [H, '> ![[b]]', '> ![[c]]']);
+});
+
+test('an embed sharing a line leaves the rest of it', () => {
+  assert.deepEqual(removeEmbeds([H, '> ![[a]] ![[b]] ![[c]]'], [1]), [H, '> ![[a]] ![[c]]']);
+  assert.deepEqual(removeEmbeds([H, '> ![[a]] ![[b]] ![[c]]'], [0, 2]), [H, '> ![[b]]']);
+  assert.deepEqual(removeEmbeds([H, '> ![[a]] ![[b]] ![[c]]'], [0, 1, 2]), [H]);
+});
+
+test('other text on the line stays', () => {
+  assert.deepEqual(removeEmbeds([H, '> ![[a]] caption', '> ![[b]]'], [0]), [H, '> caption', '> ![[b]]']);
+});
+
+test('separators doubled by the removal, or left under the header, go', () => {
+  const lines = [H, '> ![[a]]', S, '> ![[b]]', S, '> ![[c]]'];
+  assert.deepEqual(removeEmbeds(lines, [1]), [H, '> ![[a]]', S, '> ![[c]]']);
+  assert.deepEqual(removeEmbeds(lines, [0]), [H, '> ![[b]]', S, '> ![[c]]']);
+  assert.deepEqual(removeEmbeds(lines, [0, 1]), [H, '> ![[c]]']);
+});
+
+test('a group that closed the gallery leaves the one before it closed', () => {
+  assert.deepEqual(removeEmbeds([H, '> ![[a]]', S, '> ![[b]]', S], [1]), [H, '> ![[a]]', S]);
+});
+
+test('markdown images and empty quote lines already there are kept apart', () => {
+  const lines = [H, '>', '> ![a](a.png) ![[b]]', '>'];
+  assert.deepEqual(removeEmbeds(lines, [1]), [H, '>', '> ![a](a.png)', '>']);
+  assert.deepEqual(removeEmbeds(lines, [0, 1]), [H, '>', '>']);
 });
